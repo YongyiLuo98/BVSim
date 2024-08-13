@@ -10,11 +10,7 @@ BVSim: A Benchmarking Variation Simulator Mimicking Human Variation Spectrum
 git clone https://github.com/YongyiLuo98/BVSim.git
 cd your_home_path/BVSim/main/
 pip install .
-```
-## uninstall
-```bash
-pip uninstall BVSim
-```
+
 To use the package smoothly, you can install the corresponding dependencies by either
 
 ```bash
@@ -251,3 +247,11 @@ sbatch task03.job
 | `-p_del_region` | float | Probability of SV DEL in the user-defined region for deletion | 0.5 |
 | `-p_ins_region` | float | Probability of SV INS in the user-defined region for insertion | 0.5 |
 | `-region_bed_url` | str | URL of the BED file for the user-defined region | 'your_home_path/hg002/chr21_TR_unique.bed' |
+
+## Uninstallation
+
+```
+## uninstall
+```bash
+pip uninstall BVSim
+```
