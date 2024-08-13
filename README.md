@@ -10,7 +10,7 @@ BVSim: A Benchmarking Variation Simulator Mimicking Human Variation Spectrum
 git clone https://github.com/YongyiLuo98/BVSim.git
 cd your_home_path/BVSim/main/
 pip install .
-
+```
 To use the package smoothly, you can install the corresponding dependencies by either
 
 ```bash
@@ -250,8 +250,6 @@ sbatch task03.job
 
 ## Uninstallation
 
-```
-## uninstall
 ```bash
 pip uninstall BVSim
 ```
