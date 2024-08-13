@@ -1,0 +1,6 @@
+README.md
+setup.py
+BVSim.egg-info/PKG-INFO
+BVSim.egg-info/SOURCES.txt
+BVSim.egg-info/dependency_links.txt
+BVSim.egg-info/top_level.txt
