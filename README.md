@@ -2,6 +2,9 @@
 BVSim: A Benchmarking Variation Simulator Mimicking Human Variation Spectrum
 
 ![Workflow of BVSim](flow_chart_pipline.png)
+
+![Definitions of SVs](Fig1a_BVSim.png)
+
 ## Installation
 ```bash
 git clone https://github.com/YongyiLuo98/BVSim.git
@@ -99,7 +102,7 @@ If you do not call any of the following parameters (-csv, -cores, -len_bins, -wa
 
 ### Complex SV mode
 Add -csv to your command, 18 types of Complex Structure Variations can be generated.
-![Definitions of SVs](Fig1a_BVSim.png)
+
 * ID1: Tandem Inverted Duplication (TanInvDup)
 * ID2: Dispersed Inverted Duplication (DisInvDup)
 * ID3: Dispersed Duplication (DisDup)
