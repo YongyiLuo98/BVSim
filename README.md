@@ -61,7 +61,7 @@ The BVSim package provides several functions (modes) and parameters for simulati
 | `-rep` | int | Replication ID | 5 |
 | `-sv_trans` | int | Number of trans SV | 5 |
 | `-sv_inver` | int | Number of inversion SV | 5 |
-| `-dup` | int | Number of tandem duplication | 5 |
+| `-sv_dup` | int | Number of tandem duplication | 5 |
 | `-sv_del` | int | Number of SV deletion | 5 |
 | `-sv_ins` | int | Number of SV insertion | 5 |
 | `-snp` | float | SNV number or probability | 5 |
@@ -73,6 +73,10 @@ The BVSim package provides several functions (modes) and parameters for simulati
 | `-delmax` | int | Maximum deletion length | 60 |
 | `-insmin` | int | Minimum insertion length | 50 |
 | `-insmax` | int | Maximum insertion length | 450 |
+| `-dupmin` | int | Minimum duplication length | 50 |
+| `-dupmax` | int | Maximum duplication length | 450 |
+| `-invmin` | int | Minimum inversion length | 50 |
+| `-invmax` | int | Maximum inversion length | 450 |
 | `-block_region_bed_url` | str | local path of the block region BED file | None |
 
 If '-write' is present, in the '....SV_table_full.csv', the relative positions of all variations with respect to the consensus will be in the columns containing 'relative'. If this is not necessary, you can drop this parameter in your command as it extends the total time if there are lots of variations (1 min/ 10000 variations). However, it is still possible to update the relative positions after the simulation. We will save the intermediate documents for this, see the example below.
