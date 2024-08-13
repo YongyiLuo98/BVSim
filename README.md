@@ -22,7 +22,7 @@ or
 conda env create -f environment.yml
 ```
 
-## Verification
+### Verification
 To verify if you can use BVSim, try to type:
 ```bash
 cd your_home_path
@@ -97,6 +97,10 @@ echo -e "0\t1000\n3000\t4000" > block_intervals.bed
 cd your_home_path
 python -m BVSim -seed 1 -rep 1 -write -snp 2000 -block_region_bed_url block_intervals.bed
 ```
+
+### Human genome
+For human reference genome GRCh37 or GRCh38, users are recommended to call -hg19 or -hg38 in the command line for utilizing the HG002 and Cell dataset.
+
 ### Uniform mode
 If you do not call any of the following parameters (-csv, -cores, -len_bins, -wave), the simulation will be generated one by one uniformly.
 
