@@ -7,6 +7,7 @@ BVSim: A Benchmarking Variation Simulator Mimicking Human Variation Spectrum
 
 ## Installation
 ```bash
+cd your_home_path
 git clone https://github.com/YongyiLuo98/BVSim.git
 cd your_home_path/BVSim/main/
 pip install .
