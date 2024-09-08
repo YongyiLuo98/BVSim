@@ -1,0 +1,1 @@
+This is the path where the outputs will be saved if no '-save' is assigned.
