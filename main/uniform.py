@@ -45,23 +45,33 @@ def DNA_complement(sequence):
 base_list=["A","T","C","G"]
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='GenoWave')
+    parser = argparse.ArgumentParser(description='BVSim')
     parser.add_argument('-ref', type=str, help='Input reference local path', default='default_ref')
     parser.add_argument('-save',  type=str, help='local path for saving', default=os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', 'save')+ '/')
     parser.add_argument('-seed', type=int, help='Seed for random number generator', default=999)
     parser.add_argument('-times', type=int, help='Number of times', default=10)
-    parser.add_argument('-rep', type=int, help='Replication ID', default=1)
-    parser.add_argument('-sv_trans', type=int, help='Number of trans SV', default=2)
-    parser.add_argument('-sv_inver', type=int, help='Number of inversion SV', default=3)
-    parser.add_argument('-sv_dup', type=int, help='True duplication number', default=4)
-    parser.add_argument('-sv_del', type=int, help='Number of deletion SV', default=8)
-    parser.add_argument('-sv_ins', type=int, help='True insertion number', default=8)
-    parser.add_argument('-snp', type=float, help='SNV number or probability', default=None)
-    parser.add_argument('-snv_del', type=float, help='SNV deletion number or probability', default=None)
-    parser.add_argument('-snv_ins', type=float, help='SNV insertion number or probability', default=None)
+    parser.add_argument('-rep', type=int, help='Replication ID', default=99)
+    parser.add_argument('-sv_trans', type=int, help='Number of trans SV', default=5)
+    parser.add_argument('-sv_inver', type=int, help='Number of inversion SV', default=5)
+    parser.add_argument('-sv_dup', type=int, help='True duplication number', default=5)
+    parser.add_argument('-sv_del', type=int, help='Number of deletion SV', default=5)
+    parser.add_argument('-sv_ins', type=int, help='True insertion number', default=5)
+    parser.add_argument('-snp', type=float, help='SNV number or probability', default=5)
+    parser.add_argument('-snv_del', type=float, help='SNV deletion number or probability', default=5)
+    parser.add_argument('-snv_ins', type=float, help='SNV insertion number or probability', default=5)
     parser.add_argument('-notblockN', action='store_true', help='Do not Block N positions')
     parser.add_argument('-write', action='store_true', help='Write full results')
     parser.add_argument('-block_region_bed_url', type=str, help='local path of the block region BED file', default=None)
+    parser.add_argument('-delmin', type=int, help='Minimum deletion length', default=50)
+    parser.add_argument('-delmax', type=int, help='Maximum deletion length', default=60)
+    parser.add_argument('-insmin', type=int, help='Minimum insertion length', default=50)
+    parser.add_argument('-insmax', type=int, help='Maximum insertion length', default=450)
+    parser.add_argument('-dupmin', type=int, help='Minimum duplication length', default=50)
+    parser.add_argument('-dupmax', type=int, help='Maximum duplication length', default=450)
+    parser.add_argument('-invmin', type=int, help='Minimum inversion length', default=50)
+    parser.add_argument('-invmax', type=int, help='Maximum inversion length', default=450)
+    parser.add_argument('-transmin', type=int, help='Minimum translocation length', default=50)
+    parser.add_argument('-transmax', type=int, help='Maximum translocation length', default=450)
     return parser.parse_args()
 
 def main():
@@ -181,21 +191,21 @@ def main():
 
     base_list=["A","T","C","G"]
 
-    pdel_SV = 0.01
+    # pdel_SV = 0.01
     #len_SV_del = [50,100,500]
-    len_SV_trans = [50,100,500]
-    len_SV_inver = [50,100,500]
+    # len_SV_trans = [50,100,500]
+    # len_SV_inver = [50,100,500]
     #len_SV_ins = [50,100,500]
     #condition_dist_sv_del = [4/5,1/10,1/10]
-    condition_dist_sv_trans = [4/5,1/10,1/10]
-    condition_dist_sv_inver = [4/5,1/10,1/10]
+    # condition_dist_sv_trans = [4/5,1/10,1/10]
+    # condition_dist_sv_inver = [4/5,1/10,1/10]
     #condition_dist_sv_ins = [4/5,1/10,1/10]
     # number_sv_del = [4/5,1/10,1/10]
     # number_sv_trans = [4/5,1/10,1/10]
     # number_sv_inver = [4/5,1/10,1/10]
     # number_sv_dup = [4/5,1/10,1/10]
-    copied_base_sv_prob = [4/5,1/10,1/10]
-    copied_base_sv_base = [50,100,500]
+    # copied_base_sv_prob = [4/5,1/10,1/10]
+    # copied_base_sv_base = [50,100,500]
 
     # 从.npy文件中读取数据
     len_SV_del = np.load(main_url_empirical+'len_SV_del.npy').tolist()
@@ -245,6 +255,47 @@ def main():
     # 更新len_SV_ins和condition_dist_sv_ins
     len_SV_ins = selected_lengths
     condition_dist_sv_ins = normalized_probabilities
+    
+    dupmin = args.dupmin
+    dupmax = args.dupmax
+    # 计算整数范围
+    dup_range = np.arange(dupmin, dupmax + 1)
+    # 计算每个整数的概率（均匀分布）
+    # uniform_prob = 1 / len(dup_range)
+    # # 创建新的概率向量
+    # dup_sv_prob = [uniform_prob] * len(dup_range)
+    
+    # copied_base_sv_base = dup_range.tolist()
+    # copied_base_sv_prob = dup_sv_prob
+    
+    # 设置参数
+    # invmin = 84
+    # invmax = 207683
+    invmin = args.invmin
+    invmax = args.invmax
+
+    # 计算整数范围
+    inv_range = np.arange(invmin, invmax + 1)
+    # 计算每个整数的概率（均匀分布）
+    uniform_prob = 1 / len(inv_range)
+    # 创建新的概率向量
+    inv_sv_prob = [uniform_prob] * len(inv_range)
+    
+    len_SV_inver = inv_range.tolist()
+    condition_dist_sv_inver = inv_sv_prob
+    
+    transmin = args.transmin
+    transmax = args.transmax
+
+    # 计算整数范围
+    trans_range = np.arange(transmin, transmax + 1)
+    # 计算每个整数的概率（均匀分布）
+    uniform_prob_trans = 1 / len(trans_range)
+    # 创建新的概率向量
+    trans_sv_prob = [uniform_prob_trans] * len(trans_range)
+    
+    len_SV_trans = trans_range.tolist()
+    condition_dist_sv_trans = trans_sv_prob
 
     #deletion probability
     # del_sv_createria = 8.9/9
@@ -549,9 +600,9 @@ def main():
         #print(remain_index2)
         
         # length of duplication
-        tem_copied_base_index = (np.random.multinomial(n=1, pvals=copied_base_sv_prob))[0]
-        tem_copied_base = int(copied_base_sv_base[int(tem_copied_base_index)])
-
+        # tem_copied_base_index = (np.random.multinomial(n=1, pvals=copied_base_sv_prob))[0]
+        # tem_copied_base = int(copied_base_sv_base[int(tem_copied_base_index)])
+        tem_copied_base = np.random.choice(dup_range)
         ##if all bases that are copied are in left_del_region_sv, then no resampling is needed
         ## number of the common elements of two sets
         # if len(set(range(remain_index2-tem_copied_base+1,remain_index2+1))&set(left_del_region_sv)) < tem_copied_base:
@@ -565,8 +616,9 @@ def main():
             #sites that do note have general insertions
 
             remain_index2 = sample(other_sites,1)[0]
-            tem_copied_base_index = (np.random.multinomial(n=1, pvals=copied_base_sv_prob))[0]
-            tem_copied_base = int(copied_base_sv_base[int(tem_copied_base_index)])
+            # tem_copied_base_index = (np.random.multinomial(n=1, pvals=copied_base_sv_prob))[0]
+            # tem_copied_base = int(copied_base_sv_base[int(tem_copied_base_index)])
+            tem_copied_base = np.random.choice(dup_range)
             circular_count_dup = circular_count_dup + 1
             if circular_count_dup> args.times:
                 circular_count_dup_break = 1
@@ -831,6 +883,7 @@ def main():
                         Therefore, the maximum number of micro deletions that can occur is half of the total number of positions available for events.")
     
         len_seg_refine = max(unblock_region_sv)
+        print('Micro del: '+str(del_snv_number))
         # for each deletion
         for m_del in range(0,del_snv_number):
             r_s = sample(unblock_region_sv,1)[0]
@@ -913,7 +966,7 @@ def main():
             ins_snv_number = int(len_left_region * args.snv_ins)
         else:
             ins_snv_number = min(int(args.snv_ins), len_left_region)
-            
+        print('Micro ins: '+str(ins_snv_number))
         #all possitions for ins, a loop
         for number_ins in range(0,ins_snv_number):
             #the positions of insertions
@@ -976,7 +1029,7 @@ def main():
             snp = int(len_unblock_region * args.snp)
         else:
             snp = min(int(args.snp), len(unblock_region_sv))
-        
+        print('snp: '+str(snp)) 
         #snp=test_number
         ### substitution
         for number_mis in range(0,snp):
@@ -987,8 +1040,8 @@ def main():
             if tem_seq_post[ll] == 'N':
                 #bexixuan_ = 'N'
                 print('Error: SNP in Gap region')
-            else:
-                ref_id=base_list.index(tem_seq_post[ll])
+            elif tem_seq_post[ll].upper() in base_list:
+                ref_id = base_list.index(tem_seq_post[ll].upper())
                 #selection the ref_id's probability distribution
                 prob_dist = substitution_matrix[ref_id]
                 #sample a column_index 
@@ -1003,6 +1056,8 @@ def main():
                 VCF_loop = VCF_loop + 1
 
                 tem_seq_post[int(ll)] = copy.deepcopy(bexixuan_)
+            else:
+                print("Error: Invalid base")
                 
 
     tem_seq_post_up = copy.deepcopy(tem_seq_post)
@@ -1015,7 +1070,7 @@ def main():
     tem_seq_post_up_string = ''.join(tem_seq_post_up)
     tem_seq_post_up_string= tem_seq_post_up_string.replace('-','')
     updated_con.append(copy.deepcopy(tem_seq_post_up_string))
-
+    print('Length of the simulated sequence: '+str(len(tem_seq_post_up_string)))
     # 找出所有元素都是 None 或空字符串的行
     mask = np.all((SV_table == None) | (SV_table == ''), axis=1)
 
@@ -1074,7 +1129,7 @@ def main():
 
     start_time3 = time.time()
 
-    def write_template_fasta_con(args, seqname, consensus_, con_id):
+    def write_template_fasta_con(args, seqname, consensus_):
         # Prepare the new sequence
         sequences = [consensus_]
         new_sequences = []
@@ -1083,14 +1138,14 @@ def main():
             new_sequences.append(record)
 
         # Write the new sequence to a file
-        with open(args.save + 'BV_' + str(args.rep) + "_con" + str(con_id) + "_chr"+str(seqname) +"_ref.fasta", "w") as output_handle:
+        with open(args.save + 'BV_' + str(args.rep) + "_seq_"+str(seqname) +".fasta", "w") as output_handle:
             SeqIO.write(new_sequences, output_handle, "fasta")
 
-    def write_vcf(args, df, seqname, start_base, end_base,con_id):
+    def write_vcf(args, df, seqname, start_base, end_base):
         # Get the current date
         current_date = datetime.now().strftime('%Y%m%d')
         # Write the DataFrame to a VCF file
-        with open(args.save +'BV_' + str(args.rep) +"_con" + str(con_id) +  "_" +'chr'+str(seqname) +"_INDEL.vcf", 'w') as f:
+        with open(args.save +'BV_' + str(args.rep) + '_seq_' + str(seqname) +".vcf", 'w') as f:
             f.write('##fileformat=VCFv4.2\n')
             f.write('##fileDate=' + current_date + '\n')
             f.write('##source=uniform.py\n')
@@ -1110,8 +1165,8 @@ def main():
 
 
 
-    write_template_fasta_con(args, seqname, updated_con[0],ll_c)
-    write_vcf(args, VCF_table_merged, seqname, start_base, end_base,ll_c)
+    write_template_fasta_con(args, seqname, updated_con[0])
+    write_vcf(args, VCF_table_merged, seqname, start_base, end_base)
     
     #! final table
     if args.write:
@@ -1291,12 +1346,12 @@ def main():
      # Call the functions
     
         #SV_table_merged.to_csv(args.save + str(args.rep) + '_SVtable_full.txt', index=0, sep='\t')
-        SV_table_merged.to_csv(args.save +'BV_' + str(args.rep) +'_con'+str(ll_c)+'_chr'+str(seqname)+ '_SVtable_full.csv', header=True, index=False)
+        SV_table_merged.to_csv(args.save +'BV_' + str(args.rep) + '_seq_' + str(seqname) + '_SVtable_full.csv', header=True, index=False)
     else:
-        SV_table_merged.to_csv(args.save +'BV_' + str(args.rep) +'_con'+str(ll_c)+'_chr'+str(seqname)+ '_SVtable.csv', header=True, index=False)
+        SV_table_merged.to_csv(args.save +'BV_' + str(args.rep) + '_seq' + str(seqname) + '_SVtable.csv', header=True, index=False)
         # Save the dictionary as a .npy file
-        np.save(args.save+'BV_'+str(args.rep)+'_con'+str(ll_c)+'_chr'+str(seqname)+'_tem_ins_dic.npy', tem_ins_dic)
-    
+        np.save(args.save+'BV_'+str(args.rep) + '_seq_' + str(seqname) + '_tem_ins_dic.npy', tem_ins_dic)
+     
     end_time3 = time.time()
 
     elapsed_time1 = end_time1 - start_time1

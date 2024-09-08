@@ -3,12 +3,12 @@ import subprocess
 import os
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='GenoWave')
+    parser = argparse.ArgumentParser(description='BVSim')
     parser.add_argument('-ref', type=str, help='Input reference local path', default=os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', 'empirical')+ '/sub_hg19_chr1.fasta')
     parser.add_argument('-save', type=str, help='local path for saving', default=os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', 'save')+ '/')
     parser.add_argument('-seed', type=int, help='Seed for random number generator', default=999)
     parser.add_argument('-times', type=int, help='Number of times', default=10)
-    parser.add_argument('-rep', type=int, help='Replication ID', default=5)
+    parser.add_argument('-rep', type=int, help='Replication ID', default=99)
     parser.add_argument('-sv_trans', type=int, help='Number of trans SV', default=5)
     parser.add_argument('-sv_inver', type=int, help='Number of inversion SV', default=5)
     parser.add_argument('-sv_dup', type=int, help='True duplication number', default=5)
@@ -26,7 +26,12 @@ def parse_args():
     parser.add_argument('-delmax', type=int, help='Maximum deletion length', default=60)
     parser.add_argument('-insmin', type=int, help='Minimum insertion length', default=50)
     parser.add_argument('-insmax', type=int, help='Maximum insertion length', default=450)
-    
+    parser.add_argument('-dupmin', type=int, help='Minimum duplication length', default=50)
+    parser.add_argument('-dupmax', type=int, help='Maximum duplication length', default=450)
+    parser.add_argument('-invmin', type=int, help='Minimum inversion length', default=50)
+    parser.add_argument('-invmax', type=int, help='Maximum inversion length', default=450)
+    parser.add_argument('-transmin', type=int, help='Minimum translocation length', default=50)
+    parser.add_argument('-transmax', type=int, help='Maximum translocation length', default=450) 
     parser.add_argument('-csv', action='store_true', help='Run csv.py script')
     #CSV
     parser.add_argument('-csv_num', type=int, help='Number for each type of CSV, superior to -csv_total_num', default=0)
@@ -108,13 +113,16 @@ def parse_args():
     parser.add_argument('-wave', action='store_true', help='Run Wave.py script')
     parser.add_argument('-mode', type=str, help='Mode for calculating probabilities', default='probability')
     parser.add_argument('-sum', action='store_true', help='total indel SV equals sum of the input bed')
-    parser.add_argument('-indel_input_bed', type=str, help='Input BED file for indels', default='~/data/test_data/TGS/hg002/chr21_SV_Tier1.bed')
+    parser.add_argument('-indel_input_bed', type=str, help='Input BED file for indels',default=None)
+    parser.add_argument('-file_list', type=str, nargs='+', default=['NA19240_chr21', 'HG02818_chr21', 'NA19434_chr21'],
+                        help='List of sample files (default: NA19240_chr21.bed, HG02818_chr21.bed, NA19434_chr21.bed in empirical folder)')
 
     parser.add_argument('-wave_region', action='store_true', help='Run Wave_TR.py script')
     parser.add_argument('-p_del_region', type=float, help='Probability of SV DEL in the user-defined region for deletion', default=0.5)
     parser.add_argument('-p_ins_region',  type=float, help='Probability of SV INS in the user-defined region for insertion', default=0.5)
-    parser.add_argument('-region_bed_url', type=str, help='local path of the BED file for the user-defined region', default='~/data/test_data/TGS/hg002/chr21_TR_unique.bed')
+    parser.add_argument('-region_bed_url', type=str, help='local path of the BED file for the user-defined region', default=None)
     parser.add_argument('-hg38', type=str, help='Chromosome name', required=False)
+    parser.add_argument('-hg19', type=str, help='Chromosome name', required=False)
     return parser.parse_args()
     
 
@@ -142,6 +150,12 @@ def main():
     "-delmax", str(args.delmax), 
     "-insmin", str(args.insmin), 
     "-insmax", str(args.insmax),
+    "-dupmin", str(args.dupmin), 
+    "-dupmax", str(args.dupmax), 
+    "-invmin", str(args.invmin), 
+    "-invmax", str(args.invmax),
+    "-transmin", str(args.transmin), 
+    "-transmax", str(args.transmax),
     "-csv_num", str(args.csv_num), 
     "-csv_total_num", str(args.csv_total_num),
     "-num_ID1_csv", str(args.num_ID1_csv), "-mu_ID1", str(args.mu_ID1), "-sigma_ID1", str(args.sigma_ID1),
@@ -168,8 +182,25 @@ def main():
         cmd = ["python", os.path.join(main_dir, script_name), "-ref", args.ref, "-save", args.save, "-seed", str(args.seed), 
                "-times", str(args.times), "-rep", str(args.rep), "-sv_trans", str(args.sv_trans), "-sv_inver", str(args.sv_inver), "-sv_dup", 
                str(args.sv_dup), "-sv_del", str(args.sv_del), "-sv_ins", str(args.sv_ins), "-cores", str(args.cores), "-len_bins", 
-               str(args.len_bins), "-delmin", str(args.delmin), "-delmax", str(args.delmax), "-insmin", str(args.insmin), "-insmax", str(args.insmax),
-               "-mode", args.mode, "-indel_input_bed", args.indel_input_bed, "-block_region_bed_url", str(args.block_region_bed_url)]
+               str(args.len_bins), 
+               "-delmin", str(args.delmin), 
+               "-delmax", str(args.delmax), 
+               "-insmin", str(args.insmin), 
+               "-insmax", str(args.insmax),
+               "-dupmin", str(args.dupmin), 
+               "-dupmax", str(args.dupmax), 
+               "-invmin", str(args.invmin), 
+                "-invmax", str(args.invmax),
+                "-transmin", str(args.transmin), 
+                "-transmax", str(args.transmax),
+               "-mode", args.mode]
+        # 添加 indel_input_bed 参数
+        if args.block_region_bed_url:
+            cmd.extend(["-block_region_bed_url", str(args.block_region_bed_url)])
+        if args.indel_input_bed:
+            cmd.extend(["-indel_input_bed", args.indel_input_bed])
+        # 添加 file_list 参数
+        cmd.extend(["-file_list"] + args.file_list)  # 将 file_list 展开为多个参数
         if args.sum:
             cmd.append("-sum")
     elif args.wave_region:
@@ -177,9 +208,27 @@ def main():
         cmd = ["python", os.path.join(main_dir, script_name), "-ref", args.ref, "-save", args.save, "-seed", str(args.seed), 
                "-times", str(args.times), "-rep", str(args.rep), "-sv_trans", str(args.sv_trans), "-sv_inver", str(args.sv_inver), "-sv_dup", 
                str(args.sv_dup), "-sv_del", str(args.sv_del), "-sv_ins", str(args.sv_ins), "-cores", str(args.cores), "-len_bins", 
-               str(args.len_bins), "-delmin", str(args.delmin), "-delmax", str(args.delmax), "-insmin", str(args.insmin), "-insmax", str(args.insmax),
-               "-mode", args.mode, "-indel_input_bed", args.indel_input_bed, "-p_del_region", str(args.p_del_region), "-p_ins_region", str(args.p_ins_region),
-               "-region_bed_url", args.region_bed_url, "-block_region_bed_url", str(args.block_region_bed_url)]
+               str(args.len_bins), 
+               "-delmin", str(args.delmin), 
+               "-delmax", str(args.delmax), 
+               "-insmin", str(args.insmin), 
+               "-insmax", str(args.insmax),
+                "-dupmin", str(args.dupmin), 
+                "-dupmax", str(args.dupmax), 
+                "-invmin", str(args.invmin), 
+                "-invmax", str(args.invmax),
+                "-transmin", str(args.transmin), 
+                "-transmax", str(args.transmax),
+               "-mode", args.mode, "-p_del_region", str(args.p_del_region), "-p_ins_region", str(args.p_ins_region)]
+        # 添加 indel_input_bed 参数
+        if args.block_region_bed_url:
+            cmd.extend(["-block_region_bed_url", str(args.block_region_bed_url)])
+        if args.region_bed_url:
+            cmd.extend(["-region_bed_url", args.region_bed_url])
+        if args.indel_input_bed:
+            cmd.extend(["-indel_input_bed", args.indel_input_bed])
+        # 添加 file_list 参数
+        cmd.extend(["-file_list"] + args.file_list)  # 将 file_list 展开为多个参数
         if args.sum:
             cmd.append("-sum")
             
@@ -188,9 +237,54 @@ def main():
         cmd = ["python", os.path.join(main_dir, script_name), "-ref", args.ref, "-save", args.save, "-seed", str(args.seed), 
                "-times", str(args.times), "-rep", str(args.rep), "-sv_trans", str(args.sv_trans), "-sv_inver", str(args.sv_inver), "-sv_dup", 
                str(args.sv_dup), "-sv_del", str(args.sv_del), "-sv_ins", str(args.sv_ins), "-cores", str(args.cores), "-len_bins", 
-               str(args.len_bins), "-delmin", str(args.delmin), "-delmax", str(args.delmax), "-insmin", str(args.insmin), "-insmax", str(args.insmax),
+               str(args.len_bins), 
+               "-delmin", str(args.delmin), 
+               "-delmax", str(args.delmax), 
+               "-insmin", str(args.insmin), 
+               "-insmax", str(args.insmax),
+               "-dupmin", str(args.dupmin), 
+                "-dupmax", str(args.dupmax), 
+                "-invmin", str(args.invmin), 
+                "-invmax", str(args.invmax),
+                "-transmin", str(args.transmin), 
+                "-transmax", str(args.transmax),
                "-mode", args.mode, "-p_del_region", str(args.p_del_region), "-p_ins_region", str(args.p_ins_region),
-               "-region_bed_url", args.region_bed_url,"-block_region_bed_url", str(args.block_region_bed_url), "-hg38", str(args.hg38)]
+               "-hg38", str(args.hg38)]
+        # 添加 indel_input_bed 参数
+        if args.block_region_bed_url:
+            cmd.extend(["-block_region_bed_url", str(args.block_region_bed_url)])
+        if args.region_bed_url:
+            cmd.extend(["-region_bed_url", args.region_bed_url])
+        if args.indel_input_bed:
+            cmd.extend(["-indel_input_bed", args.indel_input_bed])
+        if args.sum:
+            cmd.append("-sum")
+            
+    elif args.hg19:
+        script_name = "Wave_hg19_TR.py"
+        cmd = ["python", os.path.join(main_dir, script_name), "-ref", args.ref, "-save", args.save, "-seed", str(args.seed), 
+               "-times", str(args.times), "-rep", str(args.rep), "-sv_trans", str(args.sv_trans), "-sv_inver", str(args.sv_inver), "-sv_dup", 
+               str(args.sv_dup), "-sv_del", str(args.sv_del), "-sv_ins", str(args.sv_ins), "-cores", str(args.cores), "-len_bins", 
+               str(args.len_bins), 
+               "-delmin", str(args.delmin), 
+               "-delmax", str(args.delmax), 
+               "-insmin", str(args.insmin), 
+               "-insmax", str(args.insmax),
+               "-dupmin", str(args.dupmin), 
+                "-dupmax", str(args.dupmax), 
+                "-invmin", str(args.invmin), 
+                "-invmax", str(args.invmax),
+                "-transmin", str(args.transmin), 
+                "-transmax", str(args.transmax),
+               "-mode", args.mode, "-p_del_region", str(args.p_del_region), "-p_ins_region", str(args.p_ins_region),
+               "-hg19", str(args.hg19)]
+        # 添加 indel_input_bed 参数
+        if args.block_region_bed_url:
+            cmd.extend(["-block_region_bed_url", str(args.block_region_bed_url)])
+        if args.region_bed_url:
+            cmd.extend(["-region_bed_url", args.region_bed_url])
+        if args.indel_input_bed:
+            cmd.extend(["-indel_input_bed", args.indel_input_bed])
         if args.sum:
             cmd.append("-sum")
             
@@ -199,14 +293,35 @@ def main():
         cmd = ["python", os.path.join(main_dir, script_name), "-ref", args.ref, "-save", args.save, "-seed", str(args.seed), 
                "-times", str(args.times), "-rep", str(args.rep), "-sv_trans", str(args.sv_trans), "-sv_inver", str(args.sv_inver), "-sv_dup", 
                str(args.sv_dup), "-sv_del", str(args.sv_del), "-sv_ins", str(args.sv_ins), "-cores", str(args.cores), "-len_bins", 
-               str(args.len_bins), "-delmin", str(args.delmin), "-delmax", str(args.delmax), "-insmin", str(args.insmin), "-insmax", str(args.insmax), 
+               str(args.len_bins), 
+               "-delmin", str(args.delmin), 
+               "-delmax", str(args.delmax), 
+               "-insmin", str(args.insmin), 
+               "-insmax", str(args.insmax),
+               "-dupmin", str(args.dupmin), 
+                "-dupmax", str(args.dupmax), 
+                "-invmin", str(args.invmin), 
+                "-invmax", str(args.invmax),
+                "-transmin", str(args.transmin), 
+                "-transmax", str(args.transmax),
                "-block_region_bed_url", str(args.block_region_bed_url)]
     else:
         script_name = "uniform.py"
         cmd = ["python", os.path.join(main_dir, script_name), "-ref", args.ref, "-save", args.save, 
                "-seed", str(args.seed), "-times", str(args.times), "-rep", str(args.rep), "-sv_trans", str(args.sv_trans), 
                "-sv_inver", str(args.sv_inver), "-sv_dup", str(args.sv_dup), "-sv_del", str(args.sv_del), "-sv_ins", str(args.sv_ins), 
-               "-snp", str(args.snp), "-snv_del", str(args.snv_del), "-snv_ins", str(args.snv_ins), "-block_region_bed_url", str(args.block_region_bed_url)]
+               "-snp", str(args.snp), "-snv_del", str(args.snv_del), "-snv_ins", str(args.snv_ins), 
+               "-delmin", str(args.delmin), 
+                "-delmax", str(args.delmax), 
+                "-insmin", str(args.insmin), 
+                "-insmax", str(args.insmax),
+                "-dupmin", str(args.dupmin), 
+                "-dupmax", str(args.dupmax), 
+                "-invmin", str(args.invmin), 
+                "-invmax", str(args.invmax),
+                "-transmin", str(args.transmin), 
+                "-transmax", str(args.transmax),
+               "-block_region_bed_url", str(args.block_region_bed_url)]
             
     if args.snp is not None:
         cmd.extend(["-snp", str(args.snp)])

@@ -2,7 +2,7 @@
 # coding: utf-8
 import time
 start_time0 = time.time()
-process_time0 = time.process_time()
+#process_time0 = time.process_time()
 #packages
 import numpy as np
 import pandas as pd
@@ -61,7 +61,7 @@ def error_handler(e):
     print('Error occurred:', e)
     
 #def gen_consensus(xun, process_dict):
-def gen_consensus(xun, chr_id,ll_c, starts_seg, ends_seg, tem_seq_post, del_SV_per_segment, ins_SV_per_segment, del_snv_per_segment,ins_snv_per_segment,snp_per_segment, pai_pro_tem_, args, condition_dist_sv_del, len_SV_del,condition_dist_sv_ins,len_SV_ins,ins_selection,base_list,substitution_matrix,mis_selection,times):   
+def gen_consensus(xun, chr_id,ll_c, starts_seg, ends_seg, tem_seq_post, del_SV_per_segment, ins_SV_per_segment, del_snv_per_segment,ins_snv_per_segment,snp_per_segment, pai_pro_tem_, args, condition_dist_sv_del, len_SV_del,condition_dist_sv_ins,len_SV_ins,ins_selection,base_list,substitution_matrix,mis_selection,times, tmp_dir):   
 
     SV_loop_seg = 0
     VCF_loop_seg = 0
@@ -71,17 +71,17 @@ def gen_consensus(xun, chr_id,ll_c, starts_seg, ends_seg, tem_seq_post, del_SV_p
     start_seg = starts_seg[xun]
     end_seg = ends_seg[xun]
     tem_seq_post_seg = copy.deepcopy(tem_seq_post[start_seg:end_seg])
-    print('length of seq'+str(len(tem_seq_post_seg)))
+    print('length of no.'+str(xun) + ' seq: '+str(len(tem_seq_post_seg)))
     #dictionary, restore ins sites and corresponding content
     Ins_dic_sv_seg = {}
 
     # 从临时文件加载 unblock_region_vec[xun]
-    unblock_region_vec_xun = np.load(os.path.join('tmp', 'unblock_region_vec_{}.npy'.format(xun)))
+    unblock_region_vec_xun = np.load(os.path.join(tmp_dir, 'unblock_region_vec_{}.npy'.format(xun)))
 
 
     unblock_region_seg = list(np.copy(unblock_region_vec_xun))
     #! long del
-    print(str(xun)+'long del')
+    #print(str(xun)+': long del')
     ## long del part, we need get rid of the condition that overlapped the region of inserted trans
     #p_rand_del_sv = np.random.rand(1)
 
@@ -129,7 +129,7 @@ def gen_consensus(xun, chr_id,ll_c, starts_seg, ends_seg, tem_seq_post, del_SV_p
 
     # 对每一段进行处理
     if not unblock_region_seg:# 如果segment是空集，输出警告
-        print("Warning: no available positions for long deletions in no."+str(xun)+"segment")
+        print("Warning: no available positions for long deletions in no."+str(xun)+" segment")
         circular_count_del_break = 1
     elif True_del_number == 0:
         circular_count_del_break = 1
@@ -140,7 +140,7 @@ def gen_consensus(xun, chr_id,ll_c, starts_seg, ends_seg, tem_seq_post, del_SV_p
     
     # 计算需要选择的位点的数量
     if not circular_count_del_break:
-        print('SV DEL number:'+str(True_del_number))
+        print('SV DEL number in no.'+str(xun)+'segment: '+str(True_del_number))
         for del_index in range(True_del_number):
             r_s= np.random.choice(unblock_region_seg)
             # 对于每个起点，抽取一个删除长度
@@ -213,7 +213,7 @@ def gen_consensus(xun, chr_id,ll_c, starts_seg, ends_seg, tem_seq_post, del_SV_p
     # 对每一段进行处理
     #if not left_del_region_seg:# 如果segment是空集，输出警告
     if not unblock_region_seg:# 如果segment是空集，输出警告
-        print("Warning: no available positions for long insertions in no."+str(xun)+"segment")
+        print("Warning: no available positions for long insertions in no."+str(xun)+" segment")
         circular_count_ins_break = 1
     elif True_ins_number == 0:
         circular_count_ins_break = 1
@@ -223,9 +223,9 @@ def gen_consensus(xun, chr_id,ll_c, starts_seg, ends_seg, tem_seq_post, del_SV_p
     
     # 计算需要选择的位点的数量
     if not circular_count_ins_break:
-        print('SV INS:'+str(True_ins_number))
+        print('SV INS number in No.'+str(xun)+'segment: '+str(True_ins_number))
         if not unblock_region_seg:
-            print("Warning: no available positions for long insertions in no."+str(xun)+"segment")
+            print("Warning: no available positions for long insertions in no."+str(xun)+" segment")
         else:
             len_seg_refine = max(unblock_region_seg)
             # if len_seg_refine-1 in left_del_region_seg:
@@ -290,7 +290,7 @@ def gen_consensus(xun, chr_id,ll_c, starts_seg, ends_seg, tem_seq_post, del_SV_p
     #!!
     # 对每一段进行处理
     if not unblock_region_seg:# 如果segment是空集，输出警告
-        print("Warning: no available positions for micro deletions in no."+str(xun)+"segment")
+        print("Warning: no available positions for micro deletions in no."+str(xun)+" segment")
         circular_count_micro_del_break = 1
     else:
         circular_count_micro_del_break = 0
@@ -371,7 +371,7 @@ def gen_consensus(xun, chr_id,ll_c, starts_seg, ends_seg, tem_seq_post, del_SV_p
     # 对每一段进行处理
     #if not left_del_region_snv:# 如果segment是空集，输出警告
     if not unblock_region_seg:# 如果segment是空集，输出警告
-        print("Warning: no available positions for micro insertions in no."+str(xun)+"segment")
+        print("Warning: no available positions for micro insertions in no."+str(xun)+" segment")
         circular_count_micro_ins_break = 1
     else:
         circular_count_micro_ins_break = 0
@@ -432,7 +432,7 @@ def gen_consensus(xun, chr_id,ll_c, starts_seg, ends_seg, tem_seq_post, del_SV_p
     # 对每一段进行处理
     #if not undel_region_snv:# 如果segment是空集，输出警告
     if not unblock_region_seg:# 如果segment是空集，输出警告
-        print("Warning: no available positions for substitutions in no."+str(xun)+"segment")
+        print("Warning: no available positions for substitutions in no."+str(xun)+" segment")
         circular_count_snv_break = 1
     else:
         circular_count_snv_break = 0
@@ -457,8 +457,8 @@ def gen_consensus(xun, chr_id,ll_c, starts_seg, ends_seg, tem_seq_post, del_SV_p
             if tem_seq_post_seg[ll-start_seg] == 'N':
                 #bexixuan_ = 'N'
                 print('Error: SNP in Gap region')
-            else:
-                ref_id=base_list.index(tem_seq_post_seg[ll-start_seg])
+            elif tem_seq_post_seg[ll-start_seg].upper() in base_list:
+                ref_id=base_list.index(tem_seq_post_seg[ll-start_seg].upper())
                 #selection the ref_id's probability distribution
                 prob_dist = substitution_matrix[ref_id]
                 #sample a column_index 
@@ -478,7 +478,8 @@ def gen_consensus(xun, chr_id,ll_c, starts_seg, ends_seg, tem_seq_post, del_SV_p
                 VCF_loop_seg = VCF_loop_seg + 1
 
                 tem_seq_post_seg[int(ll-start_seg)] = copy.deepcopy(bexixuan_)
-        
+            else:
+                print("Error: Invalid base for substitution")
     # 找出所有元素都是 None 或空字符串的行
     mask1 = np.all((SV_table_seg == None) | (SV_table_seg == ''), axis=1)
 
@@ -494,7 +495,7 @@ def gen_consensus(xun, chr_id,ll_c, starts_seg, ends_seg, tem_seq_post, del_SV_p
     VCF_table_seg = VCF_table_seg[~mask2]
     VCF_table_seg = pd.DataFrame(VCF_table_seg, columns=['CHROM', 'POS', 'ID', 'REF', 'ALT', 'QUAL', 'FILTER', 'INFO'])
     
-    print(str(xun)+':save files')
+    print('No.'+str(xun)+' seg is saving files')
     return SV_table_seg, VCF_table_seg, unblock_region_seg, Ins_dic_sv_seg, tem_seq_post_seg
 
 # 定义一个全局变量来存储最大的磁盘使用率
@@ -507,7 +508,7 @@ def monitor_disk_usage(max_disk_usage):
         time.sleep(1)
 
 # Monitor memory usage
-def monitor_memory(threshold, max_mem_usage, max_mem_usage_gb):
+def monitor_memory(threshold, max_mem_usage, max_mem_usage_gb,tmp_dir):
     """
     Monitor the memory usage, stop the program and release resources if memory usage exceeds the threshold.
     """
@@ -521,27 +522,27 @@ def monitor_memory(threshold, max_mem_usage, max_mem_usage_gb):
         for p in multiprocessing.active_children():
             p.terminate()
         # Remove temporary directory
-        shutil.rmtree('tmp')
+        shutil.rmtree(tmp_dir)
         raise SystemExit("Program stopped due to excessive memory usage.")
     return max_mem_usage, max_mem_usage_gb
 
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='GenoWave')
+    parser = argparse.ArgumentParser(description='BVSim')
     parser.add_argument('-ref', type=str, help='Input reference local path', default='default_ref')
     parser.add_argument('-save', type=str, help='local path for saving', default=os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', 'save')+ '/')
     parser.add_argument('-seed', type=int, help='Seed for random number generator', default=999)
     parser.add_argument('-times', type=int, help='Number of times', default=10)
-    parser.add_argument('-rep', type=int, help='Replication ID', default=1)
-    parser.add_argument('-sv_trans', type=int, help='Number of trans SV', default=2)
-    parser.add_argument('-sv_inver', type=int, help='Number of inversion SV', default=3)
-    parser.add_argument('-sv_dup', type=int, help='True duplication number', default=4)
-    parser.add_argument('-sv_del', type=int, help='Number of deletion SV', default=8)
-    parser.add_argument('-sv_ins', type=int, help='True insertion number', default=8)
-    parser.add_argument('-snp', type=float, help='SNV number or probability', default=None)
-    parser.add_argument('-snv_del', type=float, help='SNV deletion number or probability', default=None)
-    parser.add_argument('-snv_ins', type=float, help='SNV insertion number or probability', default=None)
+    parser.add_argument('-rep', type=int, help='Replication ID', default=99)
+    parser.add_argument('-sv_trans', type=int, help='Number of trans SV', default=5)
+    parser.add_argument('-sv_inver', type=int, help='Number of inversion SV', default=5)
+    parser.add_argument('-sv_dup', type=int, help='True duplication number', default=5)
+    parser.add_argument('-sv_del', type=int, help='Number of deletion SV', default=5)
+    parser.add_argument('-sv_ins', type=int, help='True insertion number', default=5)
+    parser.add_argument('-snp', type=float, help='SNV number or probability', default=5)
+    parser.add_argument('-snv_del', type=float, help='SNV deletion number or probability', default=5)
+    parser.add_argument('-snv_ins', type=float, help='SNV insertion number or probability', default=5)
     parser.add_argument('-notblockN', action='store_true', help='Do not Block N positions')
     parser.add_argument('-write', action='store_true', help='Write full results')
     parser.add_argument('-block_region_bed_url', type=str, help='local path of the block region BED file', default=None)
@@ -551,6 +552,12 @@ def parse_args():
     parser.add_argument('-delmax', type=int, help='Maximum deletion length', default=60)
     parser.add_argument('-insmin', type=int, help='Minimum insertion length', default=50)
     parser.add_argument('-insmax', type=int, help='Maximum insertion length', default=450)
+    parser.add_argument('-dupmin', type=int, help='Minimum duplication length', default=50)
+    parser.add_argument('-dupmax', type=int, help='Maximum duplication length', default=450)
+    parser.add_argument('-invmin', type=int, help='Minimum inversion length', default=50)
+    parser.add_argument('-invmax', type=int, help='Maximum inversion length', default=450)
+    parser.add_argument('-transmin', type=int, help='Minimum translocation length', default=50)
+    parser.add_argument('-transmax', type=int, help='Maximum translocation length', default=450)
     return parser.parse_args()
 
 # test_number = 2
@@ -571,14 +578,13 @@ def main():
 
     print('start')
     # Create a temporary directory if not exists
-    if not os.path.exists('tmp'):
-        os.makedirs('tmp')
+    tmp_dir = os.path.join(args.save, 'tmp')
+    if not os.path.exists(tmp_dir):
+        os.makedirs(tmp_dir)
 
-    print('Trans:'+str(args.sv_trans))
-    print('Inversion:'+str(args.sv_inver))
-    print('DUP:'+str(args.sv_dup))
-    print('DEL:'+str(args.sv_del))
-    print('INS:'+str(args.sv_ins))
+    # print('Trans:'+str(args.sv_trans))
+    # print('Inversion:'+str(args.sv_inver))
+    # print('DUP:'+str(args.sv_dup))
 
     random.seed(args.seed)
     np.random.seed(args.seed) 
@@ -626,6 +632,7 @@ def main():
     if block_region_bed is None or block_region_bed == 'None':
         print("block_region_bed_url is None")
     else:
+        print("block_region_bed_url: ")
         #block_region_bed = '~/data/test_data/TGS/hg002/chr21_block_unique.bed'
         #block_region_bed = args.block_region_bed_url
         # 读取BED文件
@@ -692,7 +699,7 @@ def main():
         starts_seg[i] = np.min(segment)
         ends_seg[i] = np.max(segment) + 1  # 加 1 是因为 Python 的切片操作是左闭右开的
 
-    print('number_seg:'+str(number_seg))
+    print('number of segments:'+str(number_seg))
 
     # 从.npy文件中读取数据
     len_SV_del = np.load(main_url_empirical+'len_SV_del.npy').tolist()
@@ -743,6 +750,46 @@ def main():
     len_SV_ins = selected_lengths
     condition_dist_sv_ins = normalized_probabilities
 
+    dupmin = args.dupmin
+    dupmax = args.dupmax
+    # 计算整数范围
+    dup_range = np.arange(dupmin, dupmax + 1)
+    # 计算每个整数的概率（均匀分布）
+    # uniform_prob = 1 / len(dup_range)
+    # # 创建新的概率向量
+    # dup_sv_prob = [uniform_prob] * len(dup_range)
+    
+    # copied_base_sv_base = dup_range.tolist()
+    # copied_base_sv_prob = dup_sv_prob
+    
+    # 设置参数
+    # invmin = 84
+    # invmax = 207683
+    invmin = args.invmin
+    invmax = args.invmax
+
+    # 计算整数范围
+    inv_range = np.arange(invmin, invmax + 1)
+    # 计算每个整数的概率（均匀分布）
+    uniform_prob = 1 / len(inv_range)
+    # 创建新的概率向量
+    inv_sv_prob = [uniform_prob] * len(inv_range)
+    
+    len_SV_inver = inv_range.tolist()
+    condition_dist_sv_inver = inv_sv_prob
+    
+    transmin = args.transmin
+    transmax = args.transmax
+
+    # 计算整数范围
+    trans_range = np.arange(transmin, transmax + 1)
+    # 计算每个整数的概率（均匀分布）
+    uniform_prob_trans = 1 / len(trans_range)
+    # 创建新的概率向量
+    trans_sv_prob = [uniform_prob_trans] * len(trans_range)
+    
+    len_SV_trans = trans_range.tolist()
+    condition_dist_sv_trans = trans_sv_prob
 
     #record the position and content of insertions, to update the final consensus
     Ins_dic_sv = {}
@@ -770,11 +817,11 @@ def main():
     len_seg_refine = len(real_con1)
     
     #deletion probability
-    del_sv_createria = 8.9/9
-    trans_sv_createria = 8.9/9
-    inver_sv_createria = 8.9/9
-    ins_location_p = 1/90000
-    dup_location_p = 1/90000
+    # del_sv_createria = 8.9/9
+    # trans_sv_createria = 8.9/9
+    # inver_sv_createria = 8.9/9
+    # ins_location_p = 1/90000
+    # dup_location_p = 1/90000
 
 
     SV_loop = 0
@@ -792,7 +839,7 @@ def main():
     diff_ins_prob_correct_real = 0.9989
     diff_ins_prob_mis_real = 0.0139
     diff_ins_prob_del_real = 0.00038
-    diff_ins_prob_ins_real = 0.00038
+    # diff_ins_prob_ins_real = 0.00038
 
 
     substitution_matrix = np.array([
@@ -811,21 +858,21 @@ def main():
 
     base_list=["A","T","C","G"]
 
-    pdel_SV = 0.01
+    # pdel_SV = 0.01
     #len_SV_del = [50,100,500]
-    len_SV_trans = [50,100,500]
-    len_SV_inver = [50,100,500]
+    # len_SV_trans = [50,100,500]
+    # len_SV_inver = [50,100,500]
     #len_SV_ins = [50,100,500]
     #condition_dist_sv_del = [4/5,1/10,1/10]
-    condition_dist_sv_trans = [4/5,1/10,1/10]
-    condition_dist_sv_inver = [4/5,1/10,1/10]
+    # condition_dist_sv_trans = [4/5,1/10,1/10]
+    # condition_dist_sv_inver = [4/5,1/10,1/10]
     #condition_dist_sv_ins = [4/5,1/10,1/10]
-    number_sv_del = [4/5,1/10,1/10]
-    number_sv_trans = [4/5,1/10,1/10]
-    number_sv_inver = [4/5,1/10,1/10]
-    number_sv_dup = [4/5,1/10,1/10]
-    copied_base_sv_prob = [4/5,1/10,1/10]
-    copied_base_sv_base = [50,100,500]
+    # number_sv_del = [4/5,1/10,1/10]
+    # number_sv_trans = [4/5,1/10,1/10]
+    # number_sv_inver = [4/5,1/10,1/10]
+    # number_sv_dup = [4/5,1/10,1/10]
+    # copied_base_sv_prob = [4/5,1/10,1/10]
+    # copied_base_sv_base = [50,100,500]
 
     #! 避免重复计算
     pai_pro_tem = [diff_ins_prob_del_real,diff_ins_prob_mis_real, diff_ins_prob_correct_real]
@@ -1083,12 +1130,12 @@ def main():
     for remain_index2 in dup_site_collection:##others### questions
         #print(remain_index2)
         #number of copies
-        dup_num_index = np.random.multinomial(n=1, pvals=number_sv_dup)
-        dup_num = int(list(dup_num_index).index(1))+1
-        # length of duplication
-        tem_copied_base_index = (np.random.multinomial(n=1, pvals=copied_base_sv_prob))[0]
-        tem_copied_base = int(copied_base_sv_base[int(tem_copied_base_index)])
-
+        # dup_num_index = np.random.multinomial(n=1, pvals=number_sv_dup)
+        # dup_num = int(list(dup_num_index).index(1))+1
+        # # length of duplication
+        # tem_copied_base_index = (np.random.multinomial(n=1, pvals=copied_base_sv_prob))[0]
+        # tem_copied_base = int(copied_base_sv_base[int(tem_copied_base_index)])
+        tem_copied_base = np.random.choice(dup_range)
         
         ##if all bases that are copied are in left_del_region_sv, then no resampling is needed
         ## number of the common elements of two sets
@@ -1103,8 +1150,9 @@ def main():
             #sites that do note have general insertions
 
             remain_index2 = sample(other_sites,1)[0]
-            tem_copied_base_index = (np.random.multinomial(n=1, pvals=copied_base_sv_prob))[0]
-            tem_copied_base = int(copied_base_sv_base[int(tem_copied_base_index)])
+            # tem_copied_base_index = (np.random.multinomial(n=1, pvals=copied_base_sv_prob))[0]
+            # tem_copied_base = int(copied_base_sv_base[int(tem_copied_base_index)])
+            tem_copied_base = np.random.choice(dup_range)
             circular_count_dup = circular_count_dup + 1
             if circular_count_dup>args.times:
                 circular_count_dup_break = 1
@@ -1138,7 +1186,8 @@ def main():
                 #remain_index2 is a new ins position, later cannot ins here
                 # if remain_index2 in left_del_region_sv:
                 #     left_del_region_sv.remove(remain_index2)
-                Ins_dic_sv[remain_index2] = ''.join(tem_seq_post[remain_index2-tem_copied_base+1:remain_index2+1])*dup_num
+                # Ins_dic_sv[remain_index2] = ''.join(tem_seq_post[remain_index2-tem_copied_base+1:remain_index2+1])*dup_num
+                Ins_dic_sv[remain_index2] = ''.join(tem_seq_post[remain_index2-tem_copied_base+1:remain_index2+1])
                 ins_len_dup = len(Ins_dic_sv[remain_index2])
                 SV_table.loc[SV_loop] = [SV_loop,ll_c,'Duplication',remain_index2-tem_copied_base+1,remain_index2,tem_copied_base,remain_index2,remain_index2,ins_len_dup,-1,0,0,0,0]
                 SV_loop = SV_loop + 1
@@ -1162,7 +1211,8 @@ def main():
                 #! substitution cannot be on the inserted pos
                 # if remain_index22 in undel_region_sv:
                 #     undel_region_sv.remove(remain_index22)
-                Ins_dic_sv[remain_index22] = ''.join(tem_seq_post[remain_index2-tem_copied_base+1:remain_index2+1])*dup_num
+                Ins_dic_sv[remain_index22] = ''.join(tem_seq_post[remain_index2-tem_copied_base+1:remain_index2+1])
+                # Ins_dic_sv[remain_index2] = ''.join(tem_seq_post[remain_index2-tem_copied_base+1:remain_index2+1])*dup_num
                 ins_len_dup = len(Ins_dic_sv[remain_index22])
 
                 SV_table.loc[SV_loop] = [SV_loop,ll_c,'Duplication',remain_index2-tem_copied_base+1,remain_index2,tem_copied_base,remain_index22,remain_index22,ins_len_dup,-1,0,0,0,0]
@@ -1184,21 +1234,21 @@ def main():
 
     end_time0 = time.time()
 
-    process_end_time0 = time.process_time()
+    #process_end_time0 = time.process_time()
 
     elapsed_time0 = end_time0 - start_time0
     formatted_time0 = str(timedelta(seconds=elapsed_time0))
 
-    process_formatted_time0 = process_end_time0 - process_time0
-    process_0_time = str(timedelta(seconds=process_formatted_time0))
+    #process_formatted_time0 = process_end_time0 - process_time0
+    #process_0_time = str(timedelta(seconds=process_formatted_time0))
 
     print(f"Max disk usage during writing parameters was: {max_disk_usage.value}%")
     max_disk_usage.value = 0.0  # 重置最大磁盘使用率
-    print(f"Initialization,Trans等待时间：{formatted_time0}")
-    print(f"Initialization, Trans执行实际时间：{process_0_time}")
+    print(f"Initialization used：{formatted_time0}")
+    #print(f"Initialization actual run time was：{process_0_time}")
 
     start_time1 = time.time()
-    process_time1 = time.process_time()
+    #process_time1 = time.process_time()
 
     # 初始化一个空的numpy数组来存储交集
     unblock_region_vec = np.empty(number_seg, dtype=object)
@@ -1218,39 +1268,56 @@ def main():
         unblock_vec_lengths.append(len(unblock_region_vec[i]))
 
         # 将 unblock_region_vec[i] 存储到临时文件
-        np.save(os.path.join('tmp', 'unblock_region_vec_{}.npy'.format(i)), unblock_region_vec[i])
+        np.save(os.path.join(tmp_dir, 'unblock_region_vec_{}.npy'.format(i)), unblock_region_vec[i])
 
     seg_probabilities = [p_length/sum(unblock_vec_lengths) for p_length in unblock_vec_lengths]
     del_SV_per_segment = np.random.multinomial(args.sv_del, seg_probabilities)
     ins_SV_per_segment = np.random.multinomial(args.sv_ins, seg_probabilities)
-    print('DEL counts:'+str(del_SV_per_segment))
-    print('INS counts:'+str(ins_SV_per_segment))
-
-    if args.snv_del is not None:
-        del_snv_per_segment = np.random.multinomial(args.snv_del, seg_probabilities)
+    print('DEL:'+str(args.sv_del))
+    print('INS:'+str(args.sv_ins))
+    print('DEL counts per segment:'+str(del_SV_per_segment))
+    print('INS counts per segment:'+str(ins_SV_per_segment))
     
-    if args.snv_ins is not None:
-        ins_snv_per_segment = np.random.multinomial(args.snv_ins, seg_probabilities)     
-        
-    if args.snp is not None:
-        snp_per_segment = np.random.multinomial(args.snp, seg_probabilities)  
+    len_unblock_region = len(unblock_region_sv)
+ 
+    if 0 <= args.snv_del < 1:
+        del_snv_number = int(len_unblock_region * args.snv_del)
+    else:
+        del_snv_number = min(int(args.snv_del), len_unblock_region)
+
+    if 0 <= args.snv_ins < 1:
+        ins_snv_number = int(len_unblock_region * args.snv_ins)
+    else:
+        ins_snv_number = min(int(args.snv_ins), len_unblock_region)
+
+    if 0 <= args.snp < 1:
+        snp = int(len_unblock_region * args.snp)
+    else:
+        snp = min(int(args.snp), len_unblock_region)
+
+    print('Micro del:'+str(int(del_snv_number)))
+    print('Micro ins:'+str(int(ins_snv_number)))
+    print('SNP:'+str(int(snp)))
+    del_snv_per_segment = np.random.multinomial(del_snv_number, seg_probabilities)
+    ins_snv_per_segment = np.random.multinomial(ins_snv_number, seg_probabilities)     
+    snp_per_segment = np.random.multinomial(snp, seg_probabilities)  
             
     end_time1 = time.time()
 
-    process_end_time1 = time.process_time()
+    #process_end_time1 = time.process_time()
 
     elapsed_time1 = end_time1 - start_time1
     formatted_time1 = str(timedelta(seconds=elapsed_time1))
 
-    process_formatted_time1 = process_end_time1 - process_time1
-    process_first_time = str(timedelta(seconds=process_formatted_time1))
+    #process_formatted_time1 = process_end_time1 - process_time1
+    #process_first_time = str(timedelta(seconds=process_formatted_time1))
 
     print(f"Max disk usage during writing parameters was: {max_disk_usage.value}%")
     max_disk_usage.value = 0.0  # 重置最大磁盘使用率
-    print(f"取交集 等待时间：{formatted_time1}")
-    print(f"取交集 CPU执行实际时间：{process_first_time}")
+    print(f"Cutting the sequence used：{formatted_time1}")
+    #print(f"Cutting the sequence actual run time was：{process_first_time}")
 
-    process_time2 = time.process_time()
+    #process_time2 = time.process_time()
     start_time2 = time.time()
 
     #! delete variables to release 内存
@@ -1260,9 +1327,9 @@ def main():
     #! define the function for each segment
 
     # Use the function in your code
-    max_mem_usage, max_mem_usage_gb = monitor_memory(90, max_mem_usage, max_mem_usage_gb)  # stop the program if memory usage exceeds 90%
+    max_mem_usage, max_mem_usage_gb = monitor_memory(90, max_mem_usage, max_mem_usage_gb,tmp_dir)  # stop the program if memory usage exceeds 90%
 
-    print(f"第一部分Max memory usage during the program run was: {max_mem_usage}% ({max_mem_usage_gb} GB)")
+    print(f"Max memory usage during the first section was: {max_mem_usage}% ({max_mem_usage_gb} GB)")
 
     
     
@@ -1270,7 +1337,7 @@ def main():
 
     #! end of the function
     
-    max_mem_usage, max_mem_usage_gb = monitor_memory(90, max_mem_usage, max_mem_usage_gb)  # stop the program if memory usage exceeds 90%
+    max_mem_usage, max_mem_usage_gb = monitor_memory(90, max_mem_usage, max_mem_usage_gb,tmp_dir)  # stop the program if memory usage exceeds 90%
 
     
     #! 计算每个进程的复杂度
@@ -1288,20 +1355,20 @@ def main():
     #xun_list=list(range(number_seg))
     # 创建一个包含进程索引的列表，按照复杂度从大到小排序
     xun_list = [index for index, complexity in sorted_complexities]
-    print('运行顺序：'+str(xun_list))
+    print('Optimal order of running due to computing complexity：'+str(xun_list))
     
     #xun_list = list(range(number_seg))
-    args.cores = 5  # set the number of processes equal to the number of cores
+    #args.cores = 5  # set the number of processes equal to the number of cores
 
     pool = Pool(args.cores)
     results = []
 
     # for xun in xun_list:
-    #     result = pool.apply_async(gen_consensus, args=(xun, process_dict), callback=lambda _: monitor_memory(90, max_mem_usage, max_mem_usage_gb), error_callback=error_handler)
+    #     result = pool.apply_async(gen_consensus, args=(xun, process_dict), callback=lambda _: monitor_memory(90, max_mem_usage, max_mem_usage_gb,tmp_dir), error_callback=error_handler)
     #     results.append((xun, result))
     for xun in xun_list:
         # 将所有需要的变量作为参数传递给gen_consensus函数
-        result = pool.apply_async(gen_consensus, args=(xun, chr_id, ll_c, starts_seg, ends_seg, tem_seq_post, del_SV_per_segment, ins_SV_per_segment, del_snv_per_segment, ins_snv_per_segment, snp_per_segment, pai_pro_tem_, args, condition_dist_sv_del, len_SV_del, condition_dist_sv_ins, len_SV_ins, ins_selection,base_list,substitution_matrix,mis_selection,times), callback=lambda _: monitor_memory(90, max_mem_usage, max_mem_usage_gb), error_callback=error_handler)
+        result = pool.apply_async(gen_consensus, args=(xun, chr_id, ll_c, starts_seg, ends_seg, tem_seq_post, del_SV_per_segment, ins_SV_per_segment, del_snv_per_segment, ins_snv_per_segment, snp_per_segment, pai_pro_tem_, args, condition_dist_sv_del, len_SV_del, condition_dist_sv_ins, len_SV_ins, ins_selection,base_list,substitution_matrix,mis_selection,times,tmp_dir), callback=lambda _: monitor_memory(90, max_mem_usage, max_mem_usage_gb,tmp_dir), error_callback=error_handler)
         results.append((xun, result))
 
     pool.close()
@@ -1311,18 +1378,18 @@ def main():
     print(f"Max memory usage during the program run was: {max_mem_usage}% ({max_mem_usage_gb} GB)")
 
     end_time2 = time.time()
-    process_end_time2 = time.process_time()
+    #process_end_time2 = time.process_time()
 
     elapsed_time2 = end_time2 - start_time2
     formatted_time2 = str(timedelta(seconds=elapsed_time2))
 
-    process_formatted_time2 = process_end_time2 - process_time2
-    process_second_time = str(timedelta(seconds=process_formatted_time2))
+    #process_formatted_time2 = process_end_time2 - process_time2
+    #process_second_time = str(timedelta(seconds=process_formatted_time2))
 
-    print(f"并行处理运行时间：{formatted_time2}")
-    print(f"并行处理 CPU执行实际时间：{process_second_time}")
+    print(f"Parallel computing used：{formatted_time2}")
+    #print(f"Parallel computing CPU run time was：{process_second_time}")
 
-    process_time3 = time.process_time()
+    #process_time3 = time.process_time()
     start_time3 = time.time()
     
     import gc
@@ -1335,7 +1402,7 @@ def main():
     # 提取结果
     SV_table_segs = [result[0] for xun, result in results]
     VCF_table_segs = [result[1] for xun, result in results]
-    unblock_region_segs = [result[2] for xun, result in results]
+    #unblock_region_segs = [result[2] for xun, result in results]
     Ins_dic_sv_segs = [result[3] for xun, result in results]
     tem_seq_post_segs = [result[4] for xun, result in results]
 
@@ -1347,29 +1414,28 @@ def main():
     VCF_table_merged = pd.concat([VCF_table, VCF_table_combined], ignore_index=True)
 
     end_time3 = time.time()
-    process_end_time3 = time.process_time()
+    #process_end_time3 = time.process_time()
     start_time4 = time.time()
     # Combine all elements in unblock_region_segs
-    unblock_region = list(set().union(*unblock_region_segs))
+    #unblock_region = list(set().union(*unblock_region_segs))
     # 初始化一个空字典来存储合并的结果
     Ins_dic_sv_combined = Ins_dic_sv
     for seg in Ins_dic_sv_segs:
         Ins_dic_sv_combined.update(seg)
         
-    print('ins number'+str(len(Ins_dic_sv_combined)))
+    #print('ins number'+str(len(Ins_dic_sv_combined)))
     tem_seq_post_update = []
 
     for seg in tem_seq_post_segs:
         tem_seq_post_update.extend(seg)
 
-    print('拼好的序列长度'+str(len(tem_seq_post_update)))
     #!
     #! check the simulated count
     # Count the number of deletions in SV_table_merged
     deletion_count = SV_table_merged[SV_table_merged['SV_type'] == 'Deletion'].shape[0]
     insertion_count = SV_table_merged[SV_table_merged['SV_type'] == 'Insertion'].shape[0]
-    print('del_count:'+str(deletion_count))
-    print('ins_count:'+str(insertion_count))
+    print('Simulated deletions:'+str(deletion_count))
+    print('Simulated insertions:'+str(insertion_count))
     end_time4 = time.time()
 
     start_time5 = time.time()
@@ -1383,6 +1449,8 @@ def main():
     tem_seq_post_up_string= tem_seq_post_up_string.replace('-','')
 
     updated_con.append(copy.deepcopy(tem_seq_post_up_string))
+
+    print('Length of the simulated sequence: '+str(len(tem_seq_post_up_string)))
 
     # 删除第一列
     SV_table_merged = SV_table_merged.iloc[:, 1:]
@@ -1414,7 +1482,7 @@ def main():
 
     tem_ins_dic = Ins_dic_sv_combined
     
-    def write_template_fasta_con(args, seqname, consensus_, con_id):
+    def write_template_fasta_con(args, seqname, consensus_):
         # Prepare the new sequence
         sequences = [consensus_]
         new_sequences = []
@@ -1423,17 +1491,17 @@ def main():
             new_sequences.append(record)
 
         # Write the new sequence to a file
-        with open(args.save + 'BV_' + str(args.rep) + "_con" + str(con_id) + "_chr"+str(seqname) +"_ref.fasta", "w") as output_handle:
+        with open(args.save + 'BV_' + str(args.rep) + "_seq_" + str(seqname) + ".fasta", "w") as output_handle:
             SeqIO.write(new_sequences, output_handle, "fasta")
     
-    def write_vcf(args, df, seqname, start_base, end_base,con_id):
+    def write_vcf(args, df, seqname, start_base, end_base):
         # Get the current date
         current_date = datetime.now().strftime('%Y%m%d')
         # Add the additional columns to the DataFrame
         df['FORMAT'] = 'GT'
         df['SAMPLE_ID'] = '1/1'
         # Write the DataFrame to a VCF file
-        with open(args.save +'BV_' + str(args.rep) +"_con" + str(con_id) +  "_" +'chr'+str(seqname) +"_INDEL.vcf", 'w') as f:
+        with open(args.save +'BV_' + str(args.rep) +  "_seq_" +str(seqname) +".vcf", 'w') as f:
             f.write('##fileformat=VCFv4.2\n')
             f.write('##fileDate=' + current_date + '\n')
             f.write('##source=uniform_parallel.py\n')
@@ -1453,8 +1521,8 @@ def main():
 
 
 
-    write_template_fasta_con(args, seqname, updated_con[0],ll_c)
-    write_vcf(args, VCF_table_merged, seqname, start_base, end_base,ll_c)
+    write_template_fasta_con(args, seqname, updated_con[0])
+    write_vcf(args, VCF_table_merged, seqname, start_base, end_base)
      
     #! final table
     if args.write:
@@ -1634,51 +1702,51 @@ def main():
      # Call the functions
     
         #SV_table_merged.to_csv(args.save + str(args.rep) + '_SVtable_full.txt', index=0, sep='\t')
-        SV_table_merged.to_csv(args.save +'BV_' + str(args.rep) +'_con'+str(ll_c)+'_chr'+str(seqname)+ '_SVtable_full.csv', header=True, index=False)
+        SV_table_merged.to_csv(args.save +'BV_' + str(args.rep) + '_seq_' + str(seqname) + '_SVtable_full.csv', header=True, index=False)
     else:
-        SV_table_merged.to_csv(args.save +'BV_' + str(args.rep) +'_con'+str(ll_c)+'_chr'+str(seqname)+ '_SVtable.csv', header=True, index=False)
+        SV_table_merged.to_csv(args.save +'BV_' + str(args.rep) + '_seq_' + str(seqname) + '_SVtable.csv', header=True, index=False)
         # Save the dictionary as a .npy file
-        np.save(args.save+'BV_'+str(args.rep)+'_con'+str(ll_c)+'_chr'+str(seqname)+'_tem_ins_dic.npy', tem_ins_dic)
+        np.save(args.save+'BV_' + str(args.rep) + '_seq_' + str(seqname) + '_tem_ins_dic.npy', tem_ins_dic)
     
     end_time5 = time.time()
     # Use the function in your code
-    max_mem_usage, max_mem_usage_gb = monitor_memory(90, max_mem_usage, max_mem_usage_gb)  # stop the program if memory usage exceeds 90%
+    max_mem_usage, max_mem_usage_gb = monitor_memory(90, max_mem_usage, max_mem_usage_gb,tmp_dir)  # stop the program if memory usage exceeds 90%
 
-    print(f"整个过程Max memory usage during the program run was: {max_mem_usage}% ({max_mem_usage_gb} GB)")
+    print(f"Max memory usage during the whole process was: {max_mem_usage}% ({max_mem_usage_gb} GB)")
     # At the end of the program, remove the temporary directory
-    shutil.rmtree('tmp')
+    shutil.rmtree(tmp_dir)
 
     #! 主程序结束后，停止磁盘监控进程
     monitor_process.terminate()
 
-    print(f"Initialization等待时间：{formatted_time0}")
-    print(f"Initialization执行实际时间：{process_0_time}")
+    print(f"Initialization used：{formatted_time0}")
+    # print(f"Initialization执行实际时间：{process_0_time}")
 
-    print(f"取交集 等待时间：{formatted_time1}")
-    print(f"取交集 CPU执行实际时间：{process_first_time}")
+    print(f"Cutting the sequence used：{formatted_time1}")
+    # print(f"取交集 CPU执行实际时间：{process_first_time}")
 
-    print(f"并行处理运行时间：{formatted_time2}")
-    print(f"并行处理 CPU执行实际时间：{process_second_time}")
+    print(f"Parallel computing used：{formatted_time2}")
+    # print(f"并行处理 CPU执行实际时间：{process_second_time}")
 
     elapsed_time3 = end_time3 - start_time3
     formatted_time3 = str(timedelta(seconds=elapsed_time3))
 
-    process_formatted_time3 = process_end_time3 - process_time3
-    process_third_time = str(timedelta(seconds=process_formatted_time3))
+    #process_formatted_time3 = process_end_time3 - process_time3
+    #process_third_time = str(timedelta(seconds=process_formatted_time3))
 
-    print(f"整理结果等待时间：{formatted_time3}")
+    print(f"Collecting the results time used：{formatted_time3}")
     # print(f"写出结果CPU实际运行时间：{process_third_time}")
     elapsed_time4 = end_time4 - start_time4
     formatted_time4 = str(timedelta(seconds=elapsed_time4))
-    print(f"拼接结果时间：{formatted_time4}")
+    print(f"Merging the results used：{formatted_time4}")
 
     elapsed_time5 = end_time5 - start_time5
     formatted_time5 = str(timedelta(seconds=elapsed_time5))
-    print(f"写出结果时间：{formatted_time5}")
+    print(f"Writing the results used：{formatted_time5}")
 
     total_time = end_time5 - start_time0
     formatted_time6 = str(timedelta(seconds=total_time))
-    print(f"总时间：{formatted_time6}")
+    print(f"Total time was：{formatted_time6}")
 
     # 记得在结束时关闭文件
     sys.stdout.close()

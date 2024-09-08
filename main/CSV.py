@@ -31,7 +31,7 @@ import argparse
 import math
 
 start_time1 = time.time()
-print('Comples Structure Variation Mode')
+print('Complex Structure Variation Mode')
 
 def check_start_end(row):
     if row['start'] >= row['end']:
@@ -57,12 +57,12 @@ base_list=["A","T","C","G"]
 
 pdel_SV = 0.01
 #len_SV_del = [50,100,500]
-len_SV_trans = [50,100,500]
-len_SV_inver = [50,100,500]
+# len_SV_trans = [50,100,500]
+# len_SV_inver = [50,100,500]
 #len_SV_ins = [50,100,500]
 #condition_dist_sv_del = [4/5,1/10,1/10]
-condition_dist_sv_trans = [4/5,1/10,1/10]
-condition_dist_sv_inver = [4/5,1/10,1/10]
+# condition_dist_sv_trans = [4/5,1/10,1/10]
+# condition_dist_sv_inver = [4/5,1/10,1/10]
 #condition_dist_sv_ins = [4/5,1/10,1/10]
 number_sv_del = [4/5,1/10,1/10]
 number_sv_trans = [4/5,1/10,1/10]
@@ -246,15 +246,16 @@ def translocation(SV_table, VCF_table, unblock_region_sv, SV_loop, CSV_loop, VCF
 #! Tandem Duplication
 
 # 均值和方差
-mu_Tandup, sigma_Tandup = 1000, 100
-# 生成高斯分布的随机数
-gaussian_Tandup = np.random.normal(mu_Tandup, sigma_Tandup, 1000)
-# 离散化和分bin
-gaussian_Tandup = np.round(gaussian_Tandup / 100) * 100
-# 取绝对值并向上取整
-gaussian_Tandup = [math.ceil(abs(x)) for x in gaussian_Tandup]
+# mu_Tandup, sigma_Tandup = 1000, 100
+# # 生成高斯分布的随机数
+# gaussian_Tandup = np.random.normal(mu_Tandup, sigma_Tandup, 1000)
+# # 离散化和分bin
+# gaussian_Tandup = np.round(gaussian_Tandup / 100) * 100
+# # 取绝对值并向上取整
+# gaussian_Tandup = [math.ceil(abs(x)) for x in gaussian_Tandup]
 
-def tandem_duplication(SV_table, VCF_table,True_dup_number, unblock_region_sv, SV_loop, VCF_loop, Ins_dic_sv, tem_seq_post, gaussian_Tandup, times, ll_c, chr_id):
+# def tandem_duplication(SV_table, VCF_table,True_dup_number, unblock_region_sv, SV_loop, VCF_loop, Ins_dic_sv, tem_seq_post, gaussian_Tandup, times, ll_c, chr_id):
+def tandem_duplication(SV_table, VCF_table,True_dup_number, unblock_region_sv, SV_loop, VCF_loop, Ins_dic_sv, tem_seq_post, dup_range, times, ll_c, chr_id):
     print('DUP:'+str(True_dup_number))
     all_selected_dup_SV= sample(unblock_region_sv,True_dup_number)
     #set for resample
@@ -262,8 +263,8 @@ def tandem_duplication(SV_table, VCF_table,True_dup_number, unblock_region_sv, S
     for remain_index2 in all_selected_dup_SV:
         
         #length of copied range
-        tem_copied_base = np.random.choice(gaussian_Tandup)
-        
+        # tem_copied_base = np.random.choice(gaussian_Tandup)
+        tem_copied_base = np.random.choice(dup_range)
         circular_count_dup = 0
         circular_count_dup_break = 0
         # resample if there is any other variation in this range
@@ -273,7 +274,8 @@ def tandem_duplication(SV_table, VCF_table,True_dup_number, unblock_region_sv, S
             #sites that do note have general insertions
             remain_index2 = sample(other_sites,1)[0]
             #length of copied range
-            tem_copied_base = np.random.choice(gaussian_Tandup)
+            # tem_copied_base = np.random.choice(gaussian_Tandup)
+            tem_copied_base = np.random.choice(dup_range)
             circular_count_dup = circular_count_dup + 1
             if circular_count_dup>times:
                 circular_count_dup_break = 1
@@ -302,22 +304,25 @@ def tandem_duplication(SV_table, VCF_table,True_dup_number, unblock_region_sv, S
 #! Inversion
 
 # 均值和方差
-mu_inv, sigma_inv = 1000, 100
-# 生成高斯分布的随机数
-gaussian_inv = np.random.normal(mu_inv, sigma_inv, 1000)
-# 离散化和分bin
-gaussian_inv = np.round(gaussian_inv / 100) * 100
-# 取绝对值并向上取整
-gaussian_inv = [math.ceil(abs(x)) for x in gaussian_inv]
+# mu_inv, sigma_inv = 1000, 100
+# # 生成高斯分布的随机数
+# gaussian_inv = np.random.normal(mu_inv, sigma_inv, 1000)
+# # 离散化和分bin
+# gaussian_inv = np.round(gaussian_inv / 100) * 100
+# # 取绝对值并向上取整
+# gaussian_inv = [math.ceil(abs(x)) for x in gaussian_inv]
 
-def inversion_process(sv_inver, SV_table, VCF_table, unblock_region_sv, SV_loop, VCF_loop, Ins_dic_sv, tem_seq_post, chr_id, len_seg_refine,ll_c,times,real_con1, gaussian_inv):
+#def inversion_process(sv_inver, SV_table, VCF_table, unblock_region_sv, SV_loop, VCF_loop, Ins_dic_sv, tem_seq_post, chr_id, len_seg_refine,ll_c,times,real_con1, gaussian_inv):
+def inversion_process(sv_inver, SV_table, VCF_table, unblock_region_sv, SV_loop, VCF_loop, Ins_dic_sv, tem_seq_post, chr_id, len_seg_refine,ll_c,times,real_con1, condition_dist_sv_inver, len_SV_inver):
     print('Canonical Inversion:'+str(sv_inver))
     for inver_num in range (0, sv_inver):
         #sample the start and length of inversion region
         r_s = sample(unblock_region_sv, 1)[0]
-        l_s = np.random.choice(gaussian_inv)
+        #l_s = np.random.choice(gaussian_inv)
         #l_s = np.random.poisson(lamnuma_del, 1)[0]
-
+        l_s_vec = np.random.multinomial(n=1, pvals=condition_dist_sv_inver)
+        l_s_index = list(l_s_vec).index(1)
+        l_s = len_SV_inver[int(l_s_index)]
         # count the number of times that we resample
         circular_count_inver = 0
         # indicator: if resampling exceeds 50 times
@@ -331,8 +336,10 @@ def inversion_process(sv_inver, SV_table, VCF_table, unblock_region_sv, SV_loop,
         while (r_s+l_s>len_seg_refine) or (r_s+l_s-1 not in unblock_region_sv) or (unblock_region_sv.index(r_s+l_s-1)-unblock_region_sv.index(r_s)<l_s-1):
             # select the possibile deleltion point
             r_s = sample(unblock_region_sv, 1)[0]
-            
-            l_s = np.random.choice(gaussian_inv)
+            #l_s = np.random.choice(gaussian_inv)
+            l_s_vec = np.random.multinomial(n=1, pvals=condition_dist_sv_inver)
+            l_s_index = list(l_s_vec).index(1)
+            l_s = len_SV_inver[int(l_s_index)]
             # count the times of resampling
             circular_count_inver = circular_count_inver + 1
             if circular_count_inver>times:
@@ -1910,7 +1917,7 @@ def ID18_INSdel_process(SV_table, VCF_table, unblock_region_sv, SV_loop,CSV_loop
 #! Long DEL
 
 def long_del_process(SV_table, VCF_table, unblock_region_sv, SV_loop, VCF_loop,tem_seq_post, sv_del, condition_dist_sv_del, len_SV_del, len_seg_refine, times, ll_c, chr_id):
-    print('Long Del:'+str(sv_del))
+    #print('Deletion:'+str(sv_del))
     for del_num in range(0, sv_del):
         ### Sample the first long deletion
         # sample a start point in the unblock region for deletion
@@ -1948,6 +1955,7 @@ def long_del_process(SV_table, VCF_table, unblock_region_sv, SV_loop, VCF_loop,t
         # if sample a del start and length that is not overlapped with translocation(s)
         # update needed pos collections and prepare for the second sampling of long deletions
         if not circular_count_del_break:
+            print('SV DEL:' + str(sv_del))
             # initialize the counting of resampling times
             circular_count_del = 0
             # block the part deleted in the first long del
@@ -1973,7 +1981,7 @@ def long_del_process(SV_table, VCF_table, unblock_region_sv, SV_loop, VCF_loop,t
                                  
 #! Long INS
 def long_ins_process(unblock_region_sv,sv_ins, condition_dist_sv_ins, len_SV_ins, ins_selection, SV_table, VCF_table, ll_c, chr_id, tem_seq_post, SV_loop, VCF_loop, Ins_dic_sv):
-    print('Long Ins:'+str(sv_ins))
+    #print('Insertion:'+str(sv_ins))
     # long insertion part
     # indicator: if resampling exceeds 50 times
     circular_count_ins_break = 0
@@ -2042,7 +2050,7 @@ pai_pro_tem = [diff_ins_prob_del_real, diff_ins_prob_mis_real, diff_ins_prob_cor
 pai_pro_tem_ = list(np.array(pai_pro_tem) / sum(pai_pro_tem))
 
 def micro_del_process(snv_del, unblock_region_sv, pai_pro_tem_, times, SV_table, VCF_table, ll_c, chr_id, tem_seq_post, SV_loop, VCF_loop, Ins_dic_sv):
-    print('micro del:'+str(snv_del))
+    print('Micro del:'+str(snv_del))
     # micro_del#对每一段进行处理
     if not unblock_region_sv:  # 如果segment是空集，输出警告
         print("Warning: empty unblock_region_sv")
@@ -2141,7 +2149,7 @@ def micro_del_process(snv_del, unblock_region_sv, pai_pro_tem_, times, SV_table,
 # 对每一段进行处理
 
 def micro_ins_process(snv_ins, unblock_region_sv, diff_ins_prob_ins_real, ins_selection, SV_table, VCF_table, ll_c, chr_id, tem_seq_post, SV_loop, VCF_loop, Ins_dic_sv):
-    print('micro ins:'+str(snv_ins))
+    print('Micro ins:'+str(snv_ins))
     # 如果segment是空集，输出警告
     if not unblock_region_sv:
         print("Warning: empty unblock_region_sv")
@@ -2214,8 +2222,8 @@ def snp_process(mis_snv_number, unblock_region_sv, base_list, substitution_matri
             # the base that is replaced
             if tem_seq_post[ll] == 'N':
                 print('Error: SNP in Gap region')
-            else:
-                ref_id = base_list.index(tem_seq_post[ll])
+            elif tem_seq_post[ll].upper() in base_list:
+                ref_id = base_list.index(tem_seq_post[ll].upper())
                 # selection the ref_id's probability distribution
                 prob_dist = substitution_matrix[ref_id]
                 # sample a column_index 
@@ -2230,6 +2238,8 @@ def snp_process(mis_snv_number, unblock_region_sv, base_list, substitution_matri
                 VCF_loop = VCF_loop + 1
 
                 tem_seq_post[int(ll)] = copy.deepcopy(bexixuan_)
+            else:
+                print("Error: Invalid base")
     return SV_table, VCF_table, unblock_region_sv, SV_loop, VCF_loop, Ins_dic_sv, tem_seq_post
 
 def CSV_finalize_table(SV_table_merged,ll_c, tem_ins_dic):
@@ -2441,7 +2451,7 @@ def parse_args():
     parser.add_argument('-save', type=str, help='local path for saving', default=os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', 'save')+ '/')
     parser.add_argument('-seed', type=int, help='Seed for random number generator', default=999)
     parser.add_argument('-times', type=int, help='Number of times', default=10)
-    parser.add_argument('-rep', type=int, help='Replication ID', default=5)
+    parser.add_argument('-rep', type=int, help='Replication ID', default=99)
     parser.add_argument('-sv_trans', type=int, help='Number of trans SV', default=5)
     parser.add_argument('-sv_inver', type=int, help='Number of inversion SV', default=5)
     parser.add_argument('-sv_dup', type=int, help='True duplication number', default=5)
@@ -2456,6 +2466,12 @@ def parse_args():
     parser.add_argument('-delmax', type=int, help='Maximum deletion length', default=60)
     parser.add_argument('-insmin', type=int, help='Minimum insertion length', default=50)
     parser.add_argument('-insmax', type=int, help='Maximum insertion length', default=450)
+    parser.add_argument('-dupmin', type=int, help='Minimum duplication length', default=50)
+    parser.add_argument('-dupmax', type=int, help='Maximum duplication length', default=450)
+    parser.add_argument('-invmin', type=int, help='Minimum inversion length', default=50)
+    parser.add_argument('-invmax', type=int, help='Maximum inversion length', default=450)
+    parser.add_argument('-transmin', type=int, help='Minimum translocation length', default=50)
+    parser.add_argument('-transmax', type=int, help='Maximum translocation length', default=450)
     parser.add_argument('-block_region_bed_url',type=str, help='local path of the block region BED file', default=None)
     #CSV
     #CSV
@@ -2545,15 +2561,9 @@ def main():
     
     # 设置main_url_empirical为固定的路径
     main_url_empirical = os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', 'empirical') + '/'
-    save = args.save
-    rep = args.rep
+    # save = args.save
+    # rep = args.rep
     ref = args.ref
-    print('Trans:'+str(args.sv_trans))
-    print('Inversion:'+str(args.sv_inver))
-    print('DUP:'+str(args.sv_dup))
-    print('DEL:'+str(args.sv_del))
-    print('INS:'+str(args.sv_ins))
-    
     ll_c = 0
     CSV_loop = 0
     SV_loop = 0
@@ -2690,6 +2700,47 @@ def main():
     len_SV_ins = selected_lengths
     condition_dist_sv_ins = normalized_probabilities
     
+    dupmin = args.dupmin
+    dupmax = args.dupmax
+    # 计算整数范围
+    dup_range = np.arange(dupmin, dupmax + 1)
+    # 计算每个整数的概率（均匀分布）
+    # uniform_prob = 1 / len(dup_range)
+    # # 创建新的概率向量
+    # dup_sv_prob = [uniform_prob] * len(dup_range)
+    
+    # copied_base_sv_base = dup_range.tolist()
+    # copied_base_sv_prob = dup_sv_prob
+    
+    # 设置参数
+    # invmin = 84
+    # invmax = 207683
+    invmin = args.invmin
+    invmax = args.invmax
+
+    # 计算整数范围
+    inv_range = np.arange(invmin, invmax + 1)
+    # 计算每个整数的概率（均匀分布）
+    uniform_prob = 1 / len(inv_range)
+    # 创建新的概率向量
+    inv_sv_prob = [uniform_prob] * len(inv_range)
+    
+    len_SV_inver = inv_range.tolist()
+    condition_dist_sv_inver = inv_sv_prob
+    
+    transmin = args.transmin
+    transmax = args.transmax
+
+    # 计算整数范围
+    trans_range = np.arange(transmin, transmax + 1)
+    # 计算每个整数的概率（均匀分布）
+    uniform_prob_trans = 1 / len(trans_range)
+    # 创建新的概率向量
+    trans_sv_prob = [uniform_prob_trans] * len(trans_range)
+    
+    len_SV_trans = trans_range.tolist()
+    condition_dist_sv_trans = trans_sv_prob
+    
     len_seg_refine = len(real_con1)
      #! start variations
     ll_c = 0
@@ -2787,8 +2838,8 @@ def main():
     #! start variations
     # Call the functions with the assigned variables
     SV_table, VCF_table, unblock_region_sv, SV_loop, VCF_loop, Ins_dic_sv, tem_seq_post = translocation(SV_table, VCF_table, unblock_region_sv, SV_loop, CSV_loop, VCF_loop, Ins_dic_sv, tem_seq_post, sv_trans, condition_dist_sv_trans, len_SV_trans, times, ll_c, len_seg_refine, ratio_b_trans, chr_id)
-    SV_table, VCF_table, unblock_region_sv, SV_loop, VCF_loop, Ins_dic_sv, tem_seq_post = tandem_duplication(SV_table, VCF_table,True_dup_number, unblock_region_sv, SV_loop, VCF_loop, Ins_dic_sv, tem_seq_post, gaussian_Tandup, times, ll_c, chr_id)
-    SV_table, VCF_table, unblock_region_sv, SV_loop, VCF_loop, Ins_dic_sv, tem_seq_post = inversion_process(sv_inver, SV_table, VCF_table, unblock_region_sv, SV_loop, VCF_loop, Ins_dic_sv, tem_seq_post, chr_id, len_seg_refine,ll_c,times,real_con1, gaussian_inv)
+    SV_table, VCF_table, unblock_region_sv, SV_loop, VCF_loop, Ins_dic_sv, tem_seq_post = tandem_duplication(SV_table, VCF_table,True_dup_number, unblock_region_sv, SV_loop, VCF_loop, Ins_dic_sv, tem_seq_post, dup_range, times, ll_c, chr_id)
+    SV_table, VCF_table, unblock_region_sv, SV_loop, VCF_loop, Ins_dic_sv, tem_seq_post = inversion_process(sv_inver, SV_table, VCF_table, unblock_region_sv, SV_loop, VCF_loop, Ins_dic_sv, tem_seq_post, chr_id, len_seg_refine,ll_c,times,real_con1, condition_dist_sv_inver, len_SV_inver)
     #! ID1: TanInvDup (Tandem Inverted Dup), 11 (73.8kb)
     SV_table, VCF_table, unblock_region_sv, SV_loop, VCF_loop, CSV_loop, Ins_dic_sv, tem_seq_post = ID1_TanInvDup_process(unblock_region_sv, True_TanInvDup_number, times, real_con1, SV_table, VCF_table, ll_c, chr_id, tem_seq_post, SV_loop, VCF_loop, CSV_loop, Ins_dic_sv,gaussian_ID1)
     #! ID2: DisInvDup (Dispersed Inverted Dup), 11 (73.8kb)
@@ -2839,7 +2890,7 @@ def main():
 
     start_time2 = time.time()
     tem_seq_post_up = tem_seq_post.copy()
-    print('tem seq post up:'+str(len(tem_seq_post_up)))
+    #print('tem seq post up:'+str(len(tem_seq_post_up)))
     for idx in sorted(Ins_dic_sv, reverse=True):
         #idx = 4981
         tem_seq_post_up.insert(idx+1, Ins_dic_sv[idx])
@@ -2848,7 +2899,7 @@ def main():
     tem_seq_post_up_string = ''.join(tem_seq_post_up)
     tem_seq_post_up_string= tem_seq_post_up_string.replace('-','')
     updated_con.append(copy.deepcopy(tem_seq_post_up_string))
-
+    print('Length of the simulated sequence: '+str(len(tem_seq_post_up_string)))
     # 删除第一列
     SV_table_merged = copy.deepcopy(SV_table)
     tem_ins_dic = Ins_dic_sv
@@ -2859,12 +2910,12 @@ def main():
     if args.write:
         print('finalize table')
         SV_table_merged = CSV_finalize_table(SV_table_merged,ll_c, tem_ins_dic)
-        SV_table_merged.to_csv(args.save +'BV_' + str(args.rep) +'_con'+str(ll_c)+'_chr'+str(seqname)+ '_SVtable_full.csv', header=True, index=False)
+        SV_table_merged.to_csv(args.save +'BV_' + str(args.rep) + '_seq_' + str(seqname) + '_SVtable_full.csv', header=True, index=False)
    
     else:
-        SV_table_merged.to_csv(args.save +'BV_' + str(args.rep) +'_con'+str(ll_c)+'_chr'+str(seqname)+ '_SVtable.csv', header=True, index=False)
+        SV_table_merged.to_csv(args.save +'BV_' + str(args.rep) + '_seq_' + str(seqname) + '_SVtable.csv', header=True, index=False)
         # Save the dictionary as a .npy file
-        np.save(args.save+'BV_'+str(args.rep)+'_con'+str(ll_c)+'_chr'+str(seqname)+'_tem_ins_dic.npy', tem_ins_dic)
+        np.save(args.save+'BV_'+str(args.rep)+ '_seq_'+str(seqname)+'_tem_ins_dic.npy', tem_ins_dic)
     
     # 按照 'pos' 列排序
     VCF_table_merged = copy.deepcopy(VCF_table)
@@ -2876,7 +2927,7 @@ def main():
     # 更新 'CSV_TYPE=ID' 列
     VCF_table_merged['CSV_TYPE=ID'] = 'rs' + VCF_table_merged.index.astype(str)
             
-    def write_template_fasta_con(args, seqname, consensus_, con_id):
+    def write_template_fasta_con(args, seqname, consensus_):
         # Prepare the new sequence
         sequences = [consensus_]
         new_sequences = []
@@ -2885,20 +2936,20 @@ def main():
             new_sequences.append(record)
 
         # Write the new sequence to a file
-        with open(args.save + 'BV_' + str(args.rep) + "_con" + str(con_id) + "_chr"+str(seqname) +"_ref.fasta", "w") as output_handle:
+        with open(args.save + 'BV_' + str(args.rep) + "_seq_"+str(seqname) +".fasta", "w") as output_handle:
             SeqIO.write(new_sequences, output_handle, "fasta")
 
     ############vcf
         
     # def write_vcf(df, save, rep, con_id, ref, seqname, start_base, end_base):
-    def write_vcf(args, df, seqname, start_base, end_base,con_id):
+    def write_vcf(args, df, seqname, start_base, end_base):
         # Get the current date
         current_date = datetime.now().strftime('%Y%m%d')
         # Add the additional columns to the DataFrame
         df['FORMAT'] = 'GT'
         df['SAMPLE_ID'] = '1/1'
         # Write the DataFrame to a VCF file
-        with open(args.save +'BV_' + str(args.rep) +"_con" + str(con_id) +  "_" +'chr'+str(seqname) +"_INDEL.vcf", 'w') as f:
+        with open(args.save +'BV_' + str(args.rep) + '_seq_' + str(seqname) +".vcf", 'w') as f:
             f.write('##fileformat=VCFv4.2\n')
             f.write('##fileDate=' + current_date + '\n')
             f.write('##source=uniform.py\n')
@@ -2944,21 +2995,21 @@ def main():
             
     #def write_template_fasta_con(save, seqname, consensus_, rep, con_id):
 
-    write_template_fasta_con(args, seqname, updated_con[0],ll_c)
+    write_template_fasta_con(args, seqname, updated_con[0])
     
     
     #def write_vcf(df, save, rep, con_id, ref, start_base, end_base):
     #write_vcf(VCF_table_merged, save,rep,ll_c,ref,seqname,start_base, end_base)
-    write_vcf(args, VCF_table_merged, seqname, start_base, end_base,ll_c)
+    write_vcf(args, VCF_table_merged, seqname, start_base, end_base)
     end_time2 = time.time()
 
     elapsed_time1 = end_time1 - start_time1
-    formatted_time1 = str(timedelta(seconds=elapsed_time1))
+    #formatted_time1 = str(timedelta(seconds=elapsed_time1))
 
     #print(f"Trans,INV,DUP运行时间：{formatted_time1}")
 
     elapsed_time2 = end_time2 - start_time2
-    formatted_time2 = str(timedelta(seconds=elapsed_time2))
+    #formatted_time2 = str(timedelta(seconds=elapsed_time2))
 
     #print(f"写出结果运行时间：{formatted_time2}")
     
