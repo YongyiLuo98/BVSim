@@ -6,6 +6,7 @@ BVSim: A Benchmarking Variation Simulator Mimicking Human Variation Spectrum
 ## Table of Contents
 
 - [Getting Started](#getting-started)
+- [Functions and Parameters](#parameters)
 
 ## <a name="getting-started"></a>Getting Started
 
@@ -95,7 +96,7 @@ or you can use the default reference to test the installation by type the follow
 cd your_home_path
 python -m BVSim 
 ```
-## Functions and Parameters
+## <a name="parameters"></a>Functions and Parameters
 
 Five modes: uniform, uniform parallel, csv, wave, wave_region
 
@@ -127,6 +128,10 @@ The BVSim package provides several functions (modes) and parameters for simulati
 | `-dupmax` | int | Maximum duplication length | 450 |
 | `-invmin` | int | Minimum inversion length | 50 |
 | `-invmax` | int | Maximum inversion length | 450 |
+| `-dupmin` | int | Minimum duplication length | 50 |
+| `-dupmax` | int | Maximum duplication length | 450 |
+| `-transmin` | int | Minimum translocation length | 50 |
+| `-transmax` | int | Maximum translocation length | 450 |
 | `-block_region_bed_url` | str | local path of the block region BED file | None |
 
 If '-write' is present, in the '....SV_table_full.csv', the relative positions of all variations with respect to the consensus will be in the columns containing 'relative'. If this is not necessary, you can drop this parameter in your command as it extends the total time if there are lots of variations (1 min/ 10000 variations). However, it is still possible to update the relative positions after the simulation. We will save the intermediate documents for this, see the example below.
