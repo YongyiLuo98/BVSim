@@ -1,6 +1,61 @@
 # BVSim
 BVSim: A Benchmarking Variation Simulator Mimicking Human Variation Spectrum
 
+# BVSim: A Benchmarking Variation Simulator Mimicking Human Variation Spectrum
+
+## Table of Contents
+
+- [Getting Started](#getting-started)
+
+## <a name="getting-started"></a>Getting Started
+
+To get started with BVSim, follow these steps to install and run the simulator:
+
+```sh
+# Clone the repository
+cd your_home_path
+git clone https://github.com/YongyiLuo98/BVSim.git
+
+# Navigate to the main directory
+cd your_home_path/BVSim/main/
+
+# Install the package
+pip install .
+# Or, install dependencies using conda
+conda activate (your_env)
+pip install -r requirements.txt
+# Alternatively, create an environment with the provided YAML file
+conda env create -f environment.yml
+
+# Verify the installation
+cd your_home_path
+python -m BVSim --help
+python -m BVSim -h
+
+# Run a toy example with a specified reference
+conda activate (your_env)
+python -m BVSim -ref 'your_home_path/BVSim/empirical/sub_hg19_chr1.fasta' -seed 0 -rep 0 -write -snp 2000
+
+# If you prefer using the default reference, simply execute
+cd your_home_path
+python -m BVSim
+
+# Generate variations with specific parameters
+cd your_home_path
+python -m BVSim -seed 1 -rep 1 -snp 2000
+
+# To write out the relative positions, use the following command
+python your_home_path/BVSim/main/write_SV.py your_home_path/BVSim/save/ BV_1_con0_chr1_SVtable.csv BV_1_con0_chr1_tem_ins_dic.npy
+
+# Create a block intervals BED file
+cd your_home_path
+echo -e "0\t1000\n3000\t4000" > block_intervals.bed
+
+# Run the simulator with block regions
+cd your_home_path
+python -m BVSim -seed 1 -rep 1 -write -snp 2000 -block_region_bed_url block_intervals.bed
+```
+
 ![Workflow of BVSim](flow_chart_pipline.png)
 
 ![Definitions of SVs](Fig1a_BVSim.png)
