@@ -12,19 +12,17 @@ BVSim: A Benchmarking Variation Simulator Mimicking Human Variation Spectrum
 To get started with BVSim, follow these steps to install and run the simulator:
 
 ```sh
-# Clone the repository
+# Installzation
+## Clone the repository
 cd your_home_path
 git clone https://github.com/YongyiLuo98/BVSim.git
-
-# Navigate to the main directory
+## Navigate to the main directory and install the package
 cd your_home_path/BVSim/main/
-
-# Install the package
 pip install .
-# Or, install dependencies using conda
+## To use BVSim, it is necessary to install dependencies by using conda or
 conda activate (your_env)
 pip install -r requirements.txt
-# Alternatively, create an environment with the provided YAML file
+## Alternatively, create an environment with the provided YAML file
 conda env create -f environment.yml
 
 # Verify the installation
@@ -32,13 +30,13 @@ cd your_home_path
 python -m BVSim --help
 python -m BVSim -h
 
-# Run a toy example with a specified reference
+## Run a toy example with a specified reference in the cloned folder
 conda activate (your_env)
 python -m BVSim -ref 'your_home_path/BVSim/empirical/sub_hg19_chr1.fasta' -seed 0 -rep 0 -write -snp 2000
-
-# If you prefer using the default reference, simply execute
+## If you prefer using the default reference, simply execute
 cd your_home_path
 python -m BVSim
+
 
 # Generate variations with specific parameters
 cd your_home_path
