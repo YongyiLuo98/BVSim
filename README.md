@@ -1,10 +1,26 @@
 # BVSim: A Benchmarking Variation Simulator Mimicking Human Variation Spectrum
 
 ## Table of Contents
+## Table of Contents
 
 - [Getting Started](#getting-started)
-- [Installation](#Installation)
+- [Installation](#installation)
 - [Functions and Parameters](#parameters)
+- [Shared Parameters](#shared-parameters)
+- [Human Genome](#human-genome)
+- [Uniform Mode](#uniform-mode)
+- [Uniform Parallel Mode](#uniform-parallel-mode)
+- [Wave Mode](#wave-mode)
+- [Requirements for the BED File](#requirements-for-the-bed-file)
+- [Generating a BED File for a Single Sample in Wave Mode](#generating-a-bed-file-for-a-single-sample-in-wave-mode)
+- [Job Submission for Wave Mode (Single Sample)](#job-submission-for-wave-mode-single-sample)
+- [Generating BED Files for Multiple Samples in Wave Mode](#generating-bed-files-for-multiple-samples-in-wave-mode)
+- [Job Submission for Wave Mode (Multiple Samples)](#job-submission-for-wave-mode-multiple-samples)
+- [Important Note on File Placement](#important-note-on-file-placement)
+- [Parameters for Wave Mode](#parameters-for-wave-mode)
+- [Wave Region Mode](#wave-region-mode)
+- [Step 1: Extract TR Regions](#step-1-extract-tr-regions)
+- [Toy Example: Generating the Region BED File](#toy-example-generating-the-region-bed-file)
 
 ## <a name="getting-started"></a>Getting Started
 
@@ -91,7 +107,7 @@ python -m BVSim
 
 Five modes: uniform, uniform parallel, csv, wave, wave_region
 
-### Shared Parameters
+### <a name="shared-parameters"></a>Shared Parameters
 The BVSim package provides several functions (modes) and parameters for simulating genetic variations. Here is a table that introduces all the functions and different parameters:
 
 | Parameter | Type | Description | Default |
@@ -148,13 +164,13 @@ cd your_home_path
 python -m BVSim -seed 1 -rep 1 -write -snp 2000 -block_region_bed_url block_intervals.bed
 ```
 
-### Human genome
+### <a name="human-genome"></a>Human Genome
 For human reference genome GRCh37 or GRCh38, users are recommended to call -hg19 or -hg38 in the command line for utilizing the HG002 and Cell dataset.
 
-### Uniform mode
+### <a name="uniform-mode"></a>Uniform Mode
 If you do not call any of the following parameters (-csv, -cores, -len_bins, -wave), the simulation will be generated one by one uniformly.
 
-### Complex SV mode
+### <a name="complex-sv-mode"></a>Complex SV Mode
 Add -csv to your command, 18 types of Complex Structure Variations can be generated.
 
 * ID1: Tandem Inverted Duplication (TanInvDup)
@@ -190,7 +206,7 @@ The lengths of the CSVs follow different Gaussian distributions with modifiable 
 | `-mu_ID1 to -mu_ID18` | int | Mean of Gaussian distribution of CSV length | 1000 |
 | `-sigma_ID1 to -sigma_ID18` | int | Standard deviation of Gaussian distribution of CSV length | 100 |
 
-### Uniform parallel mode
+### <a name="uniform-parallel-mode"></a>Uniform Parallel Mode
 Add -cores, -len_bins to your command, and write a .job file (task01.job) as follows (-c 5 means 5 cores, should be the same as -cores 5), parallel simulation will be allowed.
 
 #### Toy Example: task01.job
@@ -212,11 +228,11 @@ Submit the job file by:
 sbatch task01.job
 ```
 
-### Wave Mode
+### <a name="wave-mode"></a>Wave Mode
 
 In Wave mode, you can provide a `.bed` file generated from an empirical `.vcf` file (for example, from HG002) or multiple BED files derived from samples of a selected population (such as the 15 Cell samples). This functionality allows you to generate non-uniform insertions and deletions with various options.
 
-#### Requirements for the BED File
+#### <a name="requirements-for-the-bed-file"></a>Requirements for the BED File
 
 The BED file must adhere to the following requirements:
 
@@ -226,7 +242,7 @@ The BED file must adhere to the following requirements:
 
 Each column should be separated by a tab character (`\t`) and must not include headers. Additionally, each BED file should represent variations on the same sequence.
 
-#### Generating a BED File for a Single Sample in Wave Mode
+#### <a name="generating-a-bed-file-for-a-single-sample-in-wave-mode"></a>Generating a BED File for a Single Sample in Wave Mode
 
 To generate a single input BED file from the HG002 `.vcf` file of chromosome 21, you can use the following commands in your terminal:
 
@@ -256,7 +272,7 @@ awk -v OFS='\t' '{
     print $2, svtype, svlen;  # Print the location, SV type, and absolute SV length
 }' > /home/adduser/data/test_data/TGS/hg002/chr21_SV_Tier1.bed
 ```
-#### Job Submission for Wave Mode (Single sample)
+##### <a name="job-submission-for-wave-mode-single-sample"></a>Job Submission for Wave Mode (Single Sample)
 
 To utilize this single BED file, users should call '-indel_input_bed' in the command. Below is the example of a SLURM job script that you can use to run the Wave mode simulation with single empirical data:
 ```bash
@@ -276,7 +292,7 @@ Submit the job file by:
 ```bash
 sbatch task02_single.job
 ```
-#### Generating BED Files for Multiple Samples in Wave Mode
+#### <a name="generating-bed-files-for-multiple-samples-in-wave-mode"></a>Generating BED Files for Multiple Samples in Wave Mode
 
 In this section, we will outline the steps to generate `.bed` files for multiple cell samples from the original Excel spreadsheet, using the 15 Cell samples as an example.
 
@@ -336,7 +352,7 @@ for sample in AFR_samples:
     sample_df[columns_to_save].to_csv(bed_file_path, sep='\t', header=False, index=False)
 
 ```
-#### Job Submission for Wave Mode (Multiple samples)
+#### <a name="job-submission-for-wave-mode-multiple-samples"></a>Job Submission for Wave Mode (Multiple Samples)
 
 We provide an example of a Job submission script using SLURM for running the Wave mode with BVSim. This script utilizes the generated multiple sample BED files. Below is the example of a SLURM job script that you can use to run the Wave mode simulation with multiple samples:
 
@@ -358,9 +374,11 @@ python -m BVSim -ref your_home_path/hg38/chr21.fasta \
 
 conda deactivate
 ```
-#### Important Note on File Placement
+#### <a name="important-note-on-file-placement"></a>Important Note on File Placement
 Ensure that both the single sample and multiple sample BED files are placed in the .../BVSim/empirical/ directory. This organization simplifies the command structure, allowing you to specify only the base names of the files (without extensions) directly in the -file_list option, as demonstrated in the script above.
-#### Parameters for Wave mode
+
+#### <a name="parameters-for-wave-mode"></a>Parameters for Wave Mode
+
 | Parameter | Type | Description | Default |
 | --- | --- | --- | --- |
 | `-cores` | int | Number of kernels for parallel processing | 1 |
@@ -371,11 +389,22 @@ Ensure that both the single sample and multiple sample BED files are placed in t
 | `-indel_input_bed` | str | Input single BED file | None |
 | `-file_list` | str | Input list of multiple BED files | None |
 
-### Wave Region Mode
+##### Mode and Sum Parameters
 
-In Wave region mode, you can specify different INDEL probabilities using a BED file defined by `region_bed_url`. For example, if you want to increase the SV INDEL probabilities in the TR (tandem repeat) regions of hg19, you can follow these steps.
+The `-mode` parameter determines how the simulation calculates probabilities for insertions and deletions. It accepts two values:
 
-#### Step 1: Extract TR Regions
+- **'probability'**: In this mode, probabilities for insertions and deletions are derived from the empirical data provided in the input BED files. The total number of variations can be defined by the `-sum` parameter. If `-sum` is set to `True`, the total number of insertions or deletions will be the maximum of the calculated empirical total or the specified values in `-sv_ins` or `-sv_del`. This allows for flexibility in controlling the total number of SVs in the simulation.
+
+- **'empirical'**: When set to this mode, the simulation directly uses the empirical values from the input data without any probability calculations. The total number of variations will be the sum of the provided empirical data.
+
+The `-sum` parameter, when enabled, alters the total number of insertions and deletions based on the specified empirical data. If disabled, the simulation uses the fixed total values defined in `-sv_ins` and `-sv_del`, regardless of the empirical input.
+
+
+### <a name="wave-region-mode"></a>Wave Region Mode
+
+In Wave region mode, you can specify different INDEL probabilities using a BED file defined by `region_bed_url`. For example, if you want to increase the insertion and deletion probabilities in the tandem repeat (TR) regions of hg19, you can follow these steps.
+
+#### <a name="step-1-extract-tr-regions"></a>Step 1: Extract TR Regions
 
 First, extract the TR regions' positions from UCSC and create a BED file with two columns (start; end) separated by a tab character (`\t`).
 
@@ -400,12 +429,7 @@ awk '$1 == "chr21"' your_home_path/hg002/windows_TR_unique.bed > your_home_path/
 # Create a final BED file with start and end positions
 awk '{print $2 "\t" $3}' your_home_path/hg002/windows_TR_unique_chr21.bed > your_home_path/hg002/chr21_TR_unique.bed
 ```
-#### Step 2: Run the Job File
-Next, create a job file to run the simulation:
-Then, run the following job file.
-
-##### Toy Example: task03.job.
-
+#### <a name="step-2-job-submission-for-wave-region-mode-single-sample"></a>Step 2: Job Submission for Wave Region Mode (Single Sample)
 In this example, we set the seed to `0` and use a replication ID of `4`. The job is configured to utilize `5` cores for parallel processing, with a bin size of `500,000`. We will generate `10,000` SNPs, along with `100` micro deletions and `100` micro insertions. The probabilities for these insertions and deletions are specified in the input BED file (`-indel_input_bed`) using the empirical mode (`-mode`). Additionally, we have set the probabilities for insertions (`-p_ins_region`) and deletions (`-p_del_region`) to approximately `0.6` for the total located in the TR region defined by `-region_bed_url`.
 
 ```bash
@@ -421,12 +445,12 @@ cd your_home_path
 python -m BVSim -ref your_home_path/hg19/hg19_chr21.fasta -save your_home_path/test_data/BVSim -seed 0 -rep 4 -cores 5 -len_bins 500000 -wave_region -indel_input_bed your_home_path/hg002/chr21_SV_Tier1.bed -mode empirical -snp 10000 -snv_del 100 -snv_ins 100 -write -p_del_region 0.6 -p_ins_region 0.6 -region_bed_url your_home_path/hg002/chr21_TR_unique.bed
 conda deactivate
 ```
-#### Step 3: Submit the Job
+
 Submit the job file using the following command:
 ```bash
 sbatch task03.job
 ```
-#### Parameters for Wave Region Mode
+#### <a name="parameters-for-wave-region-mode"></a>Parameters for Wave Region Mode
 The table below summarizes the parameters available for Wave region mode:
 | Parameter | Type | Description | Default |
 | --- | --- | --- | --- |
@@ -434,14 +458,15 @@ The table below summarizes the parameters available for Wave region mode:
 | `-len_bins` | int | Length of bins for parallel processing | 50000 |
 | `-wave` | bool | Run Wave.py script | False |
 | `-mode` | str | Mode for calculating probabilities | 'probability' |
-| `-sum` | bool | Total indel SV equals sum of the input bed | False |
-| `-indel_input_bed` | str | Input BED file for indels | 'your_home_path/hg002/chr21_SV_Tier1.bed' |
+| `-sum` | bool | Total number of insertions and deletions equals sum of the input bed | False |
+| `-indel_input_bed` | str | Input single BED file | None |
+| `-file_list` | str | Input list of multiple BED files | None |
 | `-wave_region` | bool | Run Wave_TR.py script | False |
 | `-p_del_region` | float | Probability of SV DEL in the user-defined region for deletion | 0.5 |
 | `-p_ins_region` | float | Probability of SV INS in the user-defined region for insertion | 0.5 |
 | `-region_bed_url` | str | Path of the BED file for the user-defined region | 'your_home_path/hg002/chr21_TR_unique.bed' |
 
-## Uninstallation
+## <a name="uninstallation"></a>Uninstallation
 
 ```bash
 pip uninstall BVSim
