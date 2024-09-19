@@ -2,7 +2,7 @@
 
 ## Table of Contents
 ## Table of Contents
-
+<!-- 
 - [Getting Started](#getting-started)
 - [Installation](#installation)
 - [Functions and Parameters](#parameters)
@@ -20,8 +20,30 @@
 - [Parameters for Wave Mode](#parameters-for-wave-mode)
 - [Wave Region Mode](#wave-region-mode)
 - [Step 1: Extract TR Regions](#step-1-extract-tr-regions)
-- [Toy Example: Generating the Region BED File](#toy-example-generating-the-region-bed-file)
+- [Toy Example: Generating the Region BED File](#toy-example-generating-the-region-bed-file) -->
+## Table of Contents
 
+- [Getting Started](#getting-started)
+- [Installation](#installation)
+- [Functions and Parameters](#parameters)
+- [Shared Parameters](#shared-parameters)
+- [Human Genome](#human-genome)
+- [Uniform Mode](#uniform-mode)
+- [Uniform Parallel Mode](#uniform-parallel-mode)
+- [Wave Mode](#wave-mode)
+  - [Requirements for the BED File](#requirements-for-the-bed-file)
+  - [Generating a BED File for a Single Sample in Wave Mode](#generating-a-bed-file-for-a-single-sample-in-wave-mode)
+  - [Job Submission for Wave Mode (Single Sample)](#job-submission-for-wave-mode-single-sample)
+  - [Generating BED Files for Multiple Samples in Wave Mode](#generating-bed-files-for-multiple-samples-in-wave-mode)
+  - [Job Submission for Wave Mode (Multiple Samples)](#job-submission-for-wave-mode-multiple-samples)
+  - [Important Note on File Placement](#important-note-on-file-placement)
+  - [Parameters for Wave Mode](#parameters-for-wave-mode)
+- [Wave Region Mode](#wave-region-mode)
+  - [Step 1: Extract TR Regions](#step-1-extract-tr-regions)
+  - [Step 2: Job Submission for Wave Region Mode (Single Sample)](#step-2-job-submission-for-wave-region-mode-single-sample)
+  - [Step 3: Submit the Job](#step-3-submit-the-job)
+  - [Parameters for Wave Region Mode](#parameters-for-wave-region-mode)
+- [Uninstallation](#uninstallation)
 ## <a name="getting-started"></a>Getting Started
 
 To get started with BVSim, follow these steps to install and run the simulator:
