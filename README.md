@@ -27,7 +27,7 @@ python -m BVSim --help
 python -m BVSim -h
 
 ## Run a toy example with a specified reference in the cloned folder
-conda activate (your_env)
+conda activate BVSim
 python -m BVSim -ref 'your_home_path/BVSim/empirical/sub_hg19_chr1.fasta' -seed 0 -rep 0 -write -snp 2000
 ## If you prefer using the default reference, simply execute
 cd your_home_path
@@ -78,7 +78,7 @@ python -m BVSim -h
 Note: You can only call BVSim in the cloned repository directory, while the installation must take place in the BVSim/main/ directory.
 #### Toy Example:
 ```bash
-conda activate (your_env)
+conda activate BVSim
 python -m BVSim -ref 'your_home_path/BVSim/empirical/sub_hg19_chr1.fasta' -seed 0 -rep 0 -write -snp 2000
 ```
 or you can use the default reference to test the installation by type the following in your home path. If you do not give a saving path, the outputs will go to "your_home_path\BVSim\save\".
@@ -96,8 +96,8 @@ The BVSim package provides several functions (modes) and parameters for simulati
 
 | Parameter | Type | Description | Default |
 | --- | --- | --- | --- |
-| `-ref` | str | Input reference URL | 'default_ref' |
-| `-save` | str | Save URL | your_home_path/BVSim/save/ |
+| `-ref` | str | Input reference file | '.../BVSim/empirical/sub_hg19_chr1.fasta' |
+| `-save` | str | Saving path | .../BVSim/save/ |
 | `-seed` | int | Seed for random number generator | 999 |
 | `-times` | int | Number of times | 10 |
 | `-rep` | int | Replication ID | 5 |
@@ -202,7 +202,7 @@ Add -cores, -len_bins to your command, and write a .job file (task01.job) as fol
 #SBATCH --error=err.txt
 
 source /opt/share/etc/miniconda3-py39.sh
-conda activate (your_env)
+conda activate BVSim
 cd your_home_path
 python -m BVSim -ref your_home_path/hg19/hg19_chr21.fasta -save your_home_path/test_data/BVSim/task03/ -cores 5 -len_bins 500000 -rep 3 -snp 200 -snv_del 200 -snv_ins 200 -write
 conda deactivate
@@ -212,17 +212,53 @@ Submit the job file by:
 sbatch task01.job
 ```
 
-### Wave mode
+### Wave Mode
 
-If you provide an .bed file generated from an empirical .vcf file, for example from HG002, we can generate non-uniform SV INDELs with different options. The requirement of the BED file is that the first column is the breakpoint, the second is the DEL/INS label, seperated by '\t' without headers.
-To generate the input BED file from a given .vcf file, try the following command in your terminal.
+In Wave mode, you can provide a `.bed` file generated from an empirical `.vcf` file (for example, from HG002) or multiple BED files derived from samples of a selected population (such as the 15 Cell samples). This functionality allows you to generate non-uniform insertions and deletions with various options.
+
+#### Requirements for the BED File
+
+The BED file must adhere to the following requirements:
+
+- **First Column**: Location (genomic position)
+- **Second Column**: DEL/INS label (indicating if the variation is a deletion or insertion)
+- **Third Column**: Length (absolute value of the variation)
+
+Each column should be separated by a tab character (`\t`) and must not include headers. Additionally, each BED file should represent variations on the same sequence.
+
+#### Generating a BED File for a Single Sample in Wave Mode
+
+To generate a single input BED file from the HG002 `.vcf` file of chromosome 21, you can use the following commands in your terminal:
+
 ```bash
+# Download the VCF file and its index
 wget https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/AshkenazimTrio/HG002_NA24385_son/NIST_SV_v0.6/HG002_SVs_Tier1_v0.6.vcf.gz 
 wget https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/AshkenazimTrio/HG002_NA24385_son/NIST_SV_v0.6/HG002_SVs_Tier1_v0.6.vcf.gz.tbi
+
+# Activate the bcftools environment
 conda activate bcftools
-bcftools view -H -r 21 -i 'SVTYPE="INS" || SVTYPE="DEL"' your_home_path/hg002/HG002_SVs_Tier1_v0.6.vcf.gz | awk -v OFS='\t' '{split($8,a,";"); for (i in a) {if (a[i] ~ /^SVTYPE/) {split(a[i],b,"="); print $2, b[2]}}}' > your_home_path/hg002/chr21_SV_Tier1.bed
+
+# Generate the BED file using bcftools and awk
+bcftools view -H -r 21 -i 'SVTYPE="INS" || SVTYPE="DEL"' /home/adduser/data/test_data/TGS/hg002/HG002_SVs_Tier1_v0.6.vcf.gz | \
+awk -v OFS='\t' '{
+    split($8, a, ";");
+    for (i in a) {
+        if (a[i] ~ /^SVTYPE/) {
+            split(a[i], b, "=");
+            svtype = b[2];
+        }
+        else if (a[i] ~ /^SVLEN/) {
+            split(a[i], c, "=");
+            svlen = c[2];
+            if (svlen < 0) svlen = -svlen;  # Extract the absolute value of SV length
+        }
+    }
+    print $2, svtype, svlen;  # Print the location, SV type, and absolute SV length
+}' > /home/adduser/data/test_data/TGS/hg002/chr21_SV_Tier1.bed
 ```
-#### Toy Example: task02.job.
+#### Job Submission for Wave Mode (Single sample)
+
+To utilize this single BED file, users should call '-indel_input_bed' in the command. Below is the example of a SLURM job script that you can use to run the Wave mode simulation with single empirical data:
 ```bash
 #!/bin/bash
 #SBATCH -J full_chr21_parallel
@@ -231,16 +267,100 @@ bcftools view -H -r 21 -i 'SVTYPE="INS" || SVTYPE="DEL"' your_home_path/hg002/HG
 #SBATCH --error=err_chr21_wave.txt
 
 source /opt/share/etc/miniconda3-py39.sh
-conda activate your_env
+conda activate BVSim
 cd your_home_path
-python -m BVSim -ref your_home_path/hg19/hg19_chr21.fasta -save your_home_path/test_data/BVSim -seed 0 -rep 2 -cores 5 -len_bins 500000 -wave -indel_input_bed your_home_path/hg002/chr21_SV_Tier1.bed -mode empirical -snp 2000 -snv_del 1000 -snv_ins 100 -write
+python -m BVSim -ref your_home_path/hg19/hg19_chr21.fasta -save your_home_path/test_data/BVSim -seed 0 -rep 2 -cores 5 -len_bins 500000 -wave -indel_input_bed your_home_path/hg002/chr21_SV_Tier1_2.bed -mode empirical -snp 2000 -snv_del 1000 -snv_ins 100 -write
 conda deactivate
 ```
 Submit the job file by:
 ```bash
-sbatch task02.job
+sbatch task02_single.job
 ```
+#### Generating BED Files for Multiple Samples in Wave Mode
 
+In this section, we will outline the steps to generate `.bed` files for multiple cell samples from the original Excel spreadsheet, using the 15 Cell samples as an example.
+
+##### Step 1: Download the Original Excel File
+
+First, download the Excel file containing the cell samples data:
+
+```python
+import os
+
+# Download the Excel file
+os.system('wget https://ars.els-cdn.com/content/image/1-s2.0-S0092867418316337-mmc1.xlsx')
+
+```
+##### Step 2: Load and View the Data
+Next, load the Excel file into a Pandas DataFrame and view the first few rows:
+```python
+import pandas as pd
+
+# Read the Excel file into a DataFrame
+file_path = '1-s2.0-S0092867418316337-mmc1.xlsx'
+df = pd.read_excel(file_path, sheet_name=0)  # Choose the correct sheet based on the file
+
+# Display the first 5 rows of the DataFrame
+print(df.head(5))
+```
+##### Step 3: Filter the Data
+Extract the required columns and rename the first column:
+```python
+# Extract the necessary columns
+columns_to_keep = ['#CHROM', 'POS', 'END', 'ID', 'SVTYPE', 'SVLEN', 'MERGE_SAMPLES']
+cell_df = df[columns_to_keep]
+
+# List of all sample strings
+samples = ['CHM1', 'CHM13', 'HG00514', 'HG00733', 'NA19240', 'HG02818', 'NA19434', 'HG01352', 'HG02059', 'NA12878', 'HG04217', 'HG02106', 'HG00268', 'AK1', 'HX1']
+# selected population: the African population
+AFR_samples = ['NA19240', 'HG02818', 'NA19434']
+
+# Specify the columns to save in the BED file
+columns_to_save = ['POS', 'SVTYPE', 'SVLEN']
+
+# Extract rows where CHROM equals 'chr21'
+chr21_df = cell_df[cell_df['CHROM'] == 'chr21']
+
+# Display the first 10 rows for verification
+print(chr21_df.head(10))
+
+# Generate BED files for each sample in the AFR_samples list
+for sample in AFR_samples:
+    # Create a new DataFrame containing only rows where 'MERGE_SAMPLES' contains the current sample
+    sample_df = chr21_df[chr21_df['MERGE_SAMPLES'].str.contains(sample)]
+
+    # Specify the path for the new BED file
+    bed_file_path = f'.../BVSim/empirical/{sample}_chr21.bed'
+
+    # Save the specified columns to a BED file
+    sample_df[columns_to_save].to_csv(bed_file_path, sep='\t', header=False, index=False)
+
+```
+#### Job Submission for Wave Mode (Multiple samples)
+
+We provide an example of a Job submission script using SLURM for running the Wave mode with BVSim. This script utilizes the generated multiple sample BED files. Below is the example of a SLURM job script that you can use to run the Wave mode simulation with multiple samples:
+
+```bash
+#!/bin/bash
+#SBATCH -J wave
+#SBATCH -N 1 -c 5
+#SBATCH --output=/home/project18/code/BVSim_code/wave2_out.txt
+#SBATCH --error=/home/project18/code/BVSim_code/wave2_err.txt
+
+source /opt/share/etc/miniconda3-py39.sh
+conda activate BVSim
+cd /home/project18/
+
+python -m BVSim -ref your_home_path/hg38/chr21.fasta \
+-save your_home_path/BVSim/task01/ -seed 0 -rep 1 -cores 5 \
+-len_bins 500000 -wave -mode empirical -snp 2000 -snv_del 1000 -snv_ins 100 \
+-write -file_list NA19240_chr21 HG02818_chr21 NA19434_chr21
+
+conda deactivate
+```
+#### Important Note on File Placement
+Ensure that both the single sample and multiple sample BED files are placed in the .../BVSim/empirical/ directory. This organization simplifies the command structure, allowing you to specify only the base names of the files (without extensions) directly in the -file_list option, as demonstrated in the script above.
+#### Parameters for Wave mode
 | Parameter | Type | Description | Default |
 | --- | --- | --- | --- |
 | `-cores` | int | Number of kernels for parallel processing | 1 |
@@ -248,29 +368,46 @@ sbatch task02.job
 | `-wave` | bool | Run Wave.py script | False |
 | `-mode` | str | Mode for calculating probabilities | 'probability' |
 | `-sum` | bool | Total indel SV equals sum of the input bed | False |
-| `-indel_input_bed` | str | Input BED file for indels | 'your_home_path/hg002/chr21_SV_Tier1.bed' |
+| `-indel_input_bed` | str | Input single BED file | None |
+| `-file_list` | str | Input list of multiple BED files | None |
 
-### Wave region mode
-In this mode, we allow different INDEL probabilities in region_bed_url. For example, we want to set the SV INDELs probabilities to be higher in hg19's TR region. We can do the following things.
-First, extract the TR regions' positions from the UCSC and make it two columns (start;end) in a BED file seperated by '\t'.
+### Wave Region Mode
 
-#### Toy Example: generation of the BED file
+In Wave region mode, you can specify different INDEL probabilities using a BED file defined by `region_bed_url`. For example, if you want to increase the SV INDEL probabilities in the TR (tandem repeat) regions of hg19, you can follow these steps.
+
+#### Step 1: Extract TR Regions
+
+First, extract the TR regions' positions from UCSC and create a BED file with two columns (start; end) separated by a tab character (`\t`).
+
+##### Toy Example: Generating the BED File
+
+You can generate the BED file using the following commands:
+
 ```bash
+# Download the TR regions data
 wget https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/references/GRCh37/resources/hg19.simpleRepeat.bed.gz 
 wget https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/references/GRCh37/resources/hg19.simpleRepeat.bed.gz.tbi
 
+# Extract the relevant columns and create the BED file
 zcat hg19.simpleRepeat.bed.gz | awk 'BEGIN{OFS="\t"} {print $1, $2, $3}' > your_home_path/hg002/windows_TR.bed
-#merge overlapping intervals and remove duplicates
+
+# Merge overlapping intervals and remove duplicates
 bedtools sort -i your_home_path/hg002/windows_TR.bed | bedtools merge -i stdin | awk 'BEGIN{OFS="\t"} {$4="TR"; print}' | uniq > your_home_path/hg002/windows_TR_unique.bed
 
-##########your_home_path/hg002/windows_TR_unique.bed
+# Filter for chromosome 21
 awk '$1 == "chr21"' your_home_path/hg002/windows_TR_unique.bed > your_home_path/hg002/windows_TR_unique_chr21.bed
 
+# Create a final BED file with start and end positions
 awk '{print $2 "\t" $3}' your_home_path/hg002/windows_TR_unique_chr21.bed > your_home_path/hg002/chr21_TR_unique.bed
 ```
+#### Step 2: Run the Job File
+Next, create a job file to run the simulation:
 Then, run the following job file.
 
-#### Toy Example: task03.job.
+##### Toy Example: task03.job.
+
+In this example, we set the seed to `0` and use a replication ID of `4`. The job is configured to utilize `5` cores for parallel processing, with a bin size of `500,000`. We will generate `10,000` SNPs, along with `100` micro deletions and `100` micro insertions. The probabilities for these insertions and deletions are specified in the input BED file (`-indel_input_bed`) using the empirical mode (`-mode`). Additionally, we have set the probabilities for insertions (`-p_ins_region`) and deletions (`-p_del_region`) to approximately `0.6` for the total located in the TR region defined by `-region_bed_url`.
+
 ```bash
 #!/bin/bash
 #SBATCH -J full_chr21_parallel
@@ -279,16 +416,18 @@ Then, run the following job file.
 #SBATCH --error=err_chr21_wave_region.txt
 
 source /opt/share/etc/miniconda3-py39.sh
-conda activate your_env
+conda activate BVSim
 cd your_home_path
 python -m BVSim -ref your_home_path/hg19/hg19_chr21.fasta -save your_home_path/test_data/BVSim -seed 0 -rep 4 -cores 5 -len_bins 500000 -wave_region -indel_input_bed your_home_path/hg002/chr21_SV_Tier1.bed -mode empirical -snp 10000 -snv_del 100 -snv_ins 100 -write -p_del_region 0.6 -p_ins_region 0.6 -region_bed_url your_home_path/hg002/chr21_TR_unique.bed
 conda deactivate
 ```
-Submit the job file by:
+#### Step 3: Submit the Job
+Submit the job file using the following command:
 ```bash
 sbatch task03.job
 ```
-
+#### Parameters for Wave Region Mode
+The table below summarizes the parameters available for Wave region mode:
 | Parameter | Type | Description | Default |
 | --- | --- | --- | --- |
 | `-cores` | int | Number of kernels for parallel processing | 1 |
@@ -300,7 +439,7 @@ sbatch task03.job
 | `-wave_region` | bool | Run Wave_TR.py script | False |
 | `-p_del_region` | float | Probability of SV DEL in the user-defined region for deletion | 0.5 |
 | `-p_ins_region` | float | Probability of SV INS in the user-defined region for insertion | 0.5 |
-| `-region_bed_url` | str | URL of the BED file for the user-defined region | 'your_home_path/hg002/chr21_TR_unique.bed' |
+| `-region_bed_url` | str | Path of the BED file for the user-defined region | 'your_home_path/hg002/chr21_TR_unique.bed' |
 
 ## Uninstallation
 
