@@ -1,0 +1,33 @@
+name: Update View Count
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'  # 每5分钟运行一次
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Get current view count
+        id: get-view-count
+        run: |
+          echo "current_views=$(cat views.txt || echo 0)" >> $GITHUB_ENV
+
+      - name: Update view count
+        run: |
+          new_views=$((current_views + 1))
+          echo $new_views > views.txt
+          echo "View count updated to $new_views"
+
+      - name: Commit changes
+        run: |
+          git config --local user.email "you@example.com"
+          git config --local user.name "Your Name"
+          git add views.txt
+          git commit -m "Update view count to $new_views"
+          git push
