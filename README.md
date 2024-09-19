@@ -1,11 +1,9 @@
-# BVSim
-BVSim: A Benchmarking Variation Simulator Mimicking Human Variation Spectrum
-
 # BVSim: A Benchmarking Variation Simulator Mimicking Human Variation Spectrum
 
 ## Table of Contents
 
 - [Getting Started](#getting-started)
+- [Installation](#Installation)
 - [Functions and Parameters](#parameters)
 
 ## <a name="getting-started"></a>Getting Started
@@ -13,6 +11,8 @@ BVSim: A Benchmarking Variation Simulator Mimicking Human Variation Spectrum
 To get started with BVSim, follow these steps to install and run the simulator:
 
 ```sh
+# Create an envrionment called BVSim and install the dependencies
+conda create -n BVSim python=3.11 numpy pandas pysam biopython scipy seaborn psutil
 # Installzation
 ## Clone the repository
 cd your_home_path
@@ -20,11 +20,6 @@ git clone https://github.com/YongyiLuo98/BVSim.git
 ## Navigate to the main directory and install the package
 cd your_home_path/BVSim/main/
 pip install .
-## To use BVSim, it is necessary to install dependencies by using conda or
-conda activate (your_env)
-pip install -r requirements.txt
-## Alternatively, create an environment with the provided YAML file
-conda env create -f environment.yml
 
 # Verify the installation
 cd your_home_path
@@ -55,36 +50,32 @@ cd your_home_path
 python -m BVSim -seed 1 -rep 1 -write -snp 2000 -block_region_bed_url block_intervals.bed
 ```
 
-![Workflow of BVSim](flow_chart_pipline.png)
-
-![Definitions of SVs](Fig1a_BVSim.png)
-
-## Installation
+## <a name="Installation"></a>Installation
+### Create an envrionment called BVSim and install the dependencies
+To start with, you need to install the dependent packages in an environment, for example called BVSim.
+```bash
+conda create -n BVSim python=3.11 numpy pandas pysam biopython scipy seaborn psutil
+```
+### Clone the Repository
+Next, you need to clone the BVSim repository to your local machine. Execute the following command in your home directory:
 ```bash
 cd your_home_path
 git clone https://github.com/YongyiLuo98/BVSim.git
+```
+### Navigate to the Main Directory and Install the Package
+Next, navigate to the .../BVSim/main/ directory to install the package:
+```bash
 cd your_home_path/BVSim/main/
 pip install .
 ```
-To use the package smoothly, you can install the corresponding dependencies by either
-
-```bash
-conda activate (your_env)
-pip install -r requirements.txt
-```
-or
-```bash
-conda env create -f environment.yml
-```
-
-### Verification
-To verify if you can use BVSim, try to type:
+### Verify the Installation
+After installation, you can verify it from your home directory. Execute the following commands:
 ```bash
 cd your_home_path
 python -m BVSim --help
 python -m BVSim -h
 ```
-
+Note: You can only call BVSim in the cloned repository directory, while the installation must take place in the BVSim/main/ directory.
 #### Toy Example:
 ```bash
 conda activate (your_env)
@@ -316,3 +307,7 @@ sbatch task03.job
 ```bash
 pip uninstall BVSim
 ```
+
+![Workflow of BVSim](flow_chart_pipline.png)
+
+![Definitions of SVs](Fig1a_BVSim.png)
