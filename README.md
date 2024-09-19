@@ -1,8 +1,6 @@
 # BVSim: A Benchmarking Variation Simulator Mimicking Human Variation Spectrum
 
-## Repository Visits
-
-![Visit Count](https://img.shields.io/badge/Visits-![](https://raw.githubusercontent.com/YongyiLuo98/BVSim/main/views.txt).svg)
+[![Profile views](https://komarev.com/ghpvc/?username=YOUR_USERNAME&repo=YOUR_REPOSITORY&label=Profile%20views&color=0e75b6&style=flat)](https://github.com/YongyiLuo98/BVSim)
 ## Table of Contents
 
 - [Getting Started](#getting-started)
