@@ -39,9 +39,8 @@
   - [Important Note on File Placement](#important-note-on-file-placement)
   - [Parameters for Wave Mode](#parameters-for-wave-mode)
 - [Wave Region Mode](#wave-region-mode)
-  - [Step 1: Extract TR Regions](#step-1-extract-tr-regions)
-  - [Step 2: Job Submission for Wave Region Mode (Single Sample)](#step-2-job-submission-for-wave-region-mode-single-sample)
-  - [Step 3: Submit the Job](#step-3-submit-the-job)
+  - [Extract TR Regions and Generate the BED File](#step-1-extract-tr-regions)
+  - [Job Submission for Wave Region Mode (Single Sample)](#step-2-job-submission-for-wave-region-mode-single-sample)
   - [Parameters for Wave Region Mode](#parameters-for-wave-region-mode)
 - [Uninstallation](#uninstallation)
 ## <a name="getting-started"></a>Getting Started
@@ -426,11 +425,9 @@ The `-sum` parameter, when enabled, alters the total number of insertions and de
 
 In Wave region mode, you can specify different INDEL probabilities using a BED file defined by `region_bed_url`. For example, if you want to increase the insertion and deletion probabilities in the tandem repeat (TR) regions of hg19, you can follow these steps.
 
-#### <a name="step-1-extract-tr-regions"></a>Step 1: Extract TR Regions
+#### <a name="step-1-extract-tr-regions"></a>Extract TR Regions and Generate the BED File
 
 First, extract the TR regions' positions from UCSC and create a BED file with two columns (start; end) separated by a tab character (`\t`).
-
-##### Toy Example: Generating the BED File
 
 You can generate the BED file using the following commands:
 
@@ -451,7 +448,7 @@ awk '$1 == "chr21"' your_home_path/hg002/windows_TR_unique.bed > your_home_path/
 # Create a final BED file with start and end positions
 awk '{print $2 "\t" $3}' your_home_path/hg002/windows_TR_unique_chr21.bed > your_home_path/hg002/chr21_TR_unique.bed
 ```
-#### <a name="step-2-job-submission-for-wave-region-mode-single-sample"></a>Step 2: Job Submission for Wave Region Mode (Single Sample)
+#### <a name="step-2-job-submission-for-wave-region-mode-single-sample"></a>Job Submission for Wave Region Mode (Single Sample)
 In this example, we set the seed to `0` and use a replication ID of `4`. The job is configured to utilize `5` cores for parallel processing, with a bin size of `500,000`. We will generate `10,000` SNPs, along with `100` micro deletions and `100` micro insertions. The probabilities for these insertions and deletions are specified in the input BED file (`-indel_input_bed`) using the empirical mode (`-mode`). Additionally, we have set the probabilities for insertions (`-p_ins_region`) and deletions (`-p_del_region`) to approximately `0.6` for the total located in the TR region defined by `-region_bed_url`.
 
 ```bash
