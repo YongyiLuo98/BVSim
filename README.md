@@ -24,6 +24,9 @@
     - [Job Submission for Wave Region Mode (Single Sample)](#job-submission-for-wave-region-mode-single-sample)
     - [Parameters for Wave Region Mode](#parameters-for-wave-region-mode)
 - [Uninstallation for Updates](#uninstallation)
+- [Workflow of BVSim](#workflow)
+- [Definitions of SVs simulated by BVSim](#definitions)
+
 ## <a name="getting-started"></a>Getting Started
 
 To get started with BVSim, follow these steps to install and run the simulator:
@@ -467,11 +470,12 @@ The table below summarizes the parameters available for Wave region mode:
 | `-region_bed_url` | str | Path of the BED file for the user-defined region | 'your_home_path/hg002/chr21_TR_unique.bed' |
 
 ## <a name="uninstallation"></a>Uninstallation for Updates
-
+To update to the latest version of BVSim, you can uninstall and delete the cloned files. Then, try to clone from the new repository and install again.
 ```bash
+cd your_home_path
 pip uninstall BVSim
 ```
-
+## <a name="workflow"></a>Workflow of BVSim
 ![Workflow of BVSim](flow_chart_pipline.png)
-
+## <a name="definitions"></a>Definitions of SVs simulated by BVSim
 ![Definitions of SVs](Fig1a_BVSim.png)
