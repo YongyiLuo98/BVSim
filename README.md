@@ -25,7 +25,7 @@
     - [Parameters for Wave Region Mode](#parameters-for-wave-region-mode)
 - [Uninstallation for Updates](#uninstallation)
 - [Workflow of BVSim](#workflow)
-- [Definitions of SVs simulated by BVSim](#definitions)
+- [Definitions of SVs Simulated by BVSim](#definitions)
 
 ## <a name="getting-started"></a>Getting Started
 
@@ -476,6 +476,7 @@ cd your_home_path
 pip uninstall BVSim
 ```
 ## <a name="workflow"></a>Workflow of BVSim
+The following figure illustrates the workflow of BVSim, encapsulated within a dashed box, and demonstrates how the output files interact with read simulators, the alignment tool Minimap2, Samtools, and evaluation tools.
 ![Workflow of BVSim](flow_chart_pipline.png)
-## <a name="definitions"></a>Definitions of SVs simulated by BVSim
+## <a name="definitions"></a>Definitions of SVs Simulated by BVSim
 ![Definitions of SVs](Fig1a_BVSim.png)
