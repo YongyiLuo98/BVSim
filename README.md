@@ -6,24 +6,24 @@
 - [Getting Started](#getting-started)
 - [Installation](#installation)
 - [Functions and Parameters](#parameters)
-- [Shared Parameters](#shared-parameters)
-- [Human Genome](#human-genome)
-- [Uniform Mode](#uniform-mode)
-- [Complex SV Mode](#complex-sv-mode)
-- [Uniform Parallel Mode](#uniform-parallel-mode)
-- [Wave Mode](#wave-mode)
-  - [Requirements for the BED File](#requirements-for-the-bed-file)
-  - [Generating a BED File for a Single Sample in Wave Mode](#generating-a-bed-file-for-a-single-sample-in-wave-mode)
-  - [Job Submission for Wave Mode (Single Sample)](#job-submission-for-wave-mode-single-sample)
-  - [Generating BED Files for Multiple Samples in Wave Mode](#generating-bed-files-for-multiple-samples-in-wave-mode)
-  - [Job Submission for Wave Mode (Multiple Samples)](#job-submission-for-wave-mode-multiple-samples)
-  - [Important Note on File Placement](#important-note-on-file-placement)
-  - [Parameters for Wave Mode](#parameters-for-wave-mode)
-- [Wave Region Mode](#wave-region-mode)
-  - [Extract TR Regions and Generate the BED File](#step-1-extract-tr-regions)
-  - [Job Submission for Wave Region Mode (Single Sample)](#job-submission-for-wave-region-mode-single-sample)
-  - [Parameters for Wave Region Mode](#parameters-for-wave-region-mode)
-- [Uninstallation](#uninstallation)
+  - [Shared Parameters](#shared-parameters)
+  - [Human Genome](#human-genome)
+  - [Uniform Mode](#uniform-mode)
+  - [Complex SV Mode](#complex-sv-mode)
+  - [Uniform Parallel Mode](#uniform-parallel-mode)
+  - [Wave Mode](#wave-mode)
+    - [Requirements for the BED File](#requirements-for-the-bed-file)
+    - [Generating a BED File for a Single Sample in Wave Mode](#generating-a-bed-file-for-a-single-sample-in-wave-mode)
+    - [Job Submission for Wave Mode (Single Sample)](#job-submission-for-wave-mode-single-sample)
+    - [Generating BED Files for Multiple Samples in Wave Mode](#generating-bed-files-for-multiple-samples-in-wave-mode)
+    - [Job Submission for Wave Mode (Multiple Samples)](#job-submission-for-wave-mode-multiple-samples)
+    - [Important Note on File Placement](#important-note-on-file-placement)
+    - [Parameters for Wave Mode](#parameters-for-wave-mode)
+  - [Wave Region Mode](#wave-region-mode)
+    - [Extract TR Regions and Generate the BED File](#step-1-extract-tr-regions)
+    - [Job Submission for Wave Region Mode (Single Sample)](#job-submission-for-wave-region-mode-single-sample)
+    - [Parameters for Wave Region Mode](#parameters-for-wave-region-mode)
+- [Uninstallation for Updates](#uninstallation)
 ## <a name="getting-started"></a>Getting Started
 
 To get started with BVSim, follow these steps to install and run the simulator:
@@ -466,7 +466,7 @@ The table below summarizes the parameters available for Wave region mode:
 | `-p_ins_region` | float | Probability of SV INS in the user-defined region for insertion | 0.5 |
 | `-region_bed_url` | str | Path of the BED file for the user-defined region | 'your_home_path/hg002/chr21_TR_unique.bed' |
 
-## <a name="uninstallation"></a>Uninstallation
+## <a name="uninstallation"></a>Uninstallation for Updates
 
 ```bash
 pip uninstall BVSim
