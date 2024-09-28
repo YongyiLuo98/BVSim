@@ -1,6 +1,33 @@
 # BVSim: A Benchmarking Variation Simulator Mimicking Human Variation Spectrum
 
 [![Profile views](https://komarev.com/ghpvc/?username=YongyiLuo98&repo=BVSim&label=Profile%20views&color=0e75b6&style=flat)](https://github.com/YongyiLuo98/BVSim)
+## Table of Contents
+
+- [Getting Started](#getting-started)
+- [Installation](#installation)
+- [General Functions and Parameters](#parameters)
+  - [Shared Parameters](#shared-parameters)
+    - [Write the Relative Positions of Simulated Variations](#write)
+    - [User-defined Block Regions with No Variations](#block)
+  - [Uniform Mode](#uniform-mode)
+  - [Complex SV Mode](#complex-sv-mode)
+  - [Uniform Parallel Mode](#uniform-parallel-mode)
+  - [Wave Mode](#wave-mode)
+    - [User-defined Sample(s) and Input BED File Requirements](#requirements-for-the-bed-file)
+    - [Generate a BED File for a Single Sample](#generating-a-bed-file-for-a-single-sample-in-wave-mode)
+    - [Job Submission for Single Sample (BED Format)](#job-submission-for-wave-mode-single-sample)
+    - [Generating BED Files for Multiple Samples](#generating-bed-files-for-multiple-samples-in-wave-mode)
+    - [Job Submission for Multiple Samples (BED Format)](#job-submission-for-wave-mode-multiple-samples)
+    - [Important Note on File Placement](#important-note-on-file-placement)
+    - [Parameters for Wave Mode](#parameters-for-wave-mode)
+  - [Wave Region Mode](#wave-region-mode)
+    - [Extract User-defined Regions (e.g. TR region) and Generate the BED File](#step-1-extract-tr-regions)
+    - [Job Submission for Single Sample (BED Format)](#job-submission-for-wave-region-mode-single-sample)
+    - [Parameters for Wave Region Mode](#parameters-for-wave-region-mode)
+  - [Human Genome](#human-genome)
+- [Uninstallation for Updates](#uninstallation)
+- [Workflow of BVSim](#workflow)
+- [Definitions of SVs Simulated by BVSim](#definitions)
 
 ## <a name="getting-started"></a>Getting Started
 
@@ -45,36 +72,6 @@ echo -e "0\t1000\n3000\t4000" > block_intervals.bed
 cd your_home_path
 python -m BVSim -seed 1 -rep 1 -write -snp 2000 -block_region_bed_url block_intervals.bed
 ```
-
-## Table of Contents
-
-- [Getting Started](#getting-started)
-- [Installation](#installation)
-- [General Functions and Parameters](#parameters)
-  - [Shared Parameters](#shared-parameters)
-    - [Write the Relative Positions of Simulated Variations](#write)
-    - [User-defined Block Regions with No Variations](#block)
-  - [Uniform Mode](#uniform-mode)
-  - [Complex SV Mode](#complex-sv-mode)
-  - [Uniform Parallel Mode](#uniform-parallel-mode)
-  - [Wave Mode](#wave-mode)
-    - [User-defined Sample(s) and Input BED File Requirements](#requirements-for-the-bed-file)
-    - [Generate a BED File for a Single Sample](#generating-a-bed-file-for-a-single-sample-in-wave-mode)
-    - [Job Submission for Single Sample (BED Format)](#job-submission-for-wave-mode-single-sample)
-    - [Generating BED Files for Multiple Samples](#generating-bed-files-for-multiple-samples-in-wave-mode)
-    - [Job Submission for Multiple Samples (BED Format)](#job-submission-for-wave-mode-multiple-samples)
-    - [Important Note on File Placement](#important-note-on-file-placement)
-    - [Parameters for Wave Mode](#parameters-for-wave-mode)
-  - [Wave Region Mode](#wave-region-mode)
-    - [Extract User-defined Regions (e.g. TR region) and Generate the BED File](#step-1-extract-tr-regions)
-    - [Job Submission for Single Sample (BED Format)](#job-submission-for-wave-region-mode-single-sample)
-    - [Parameters for Wave Region Mode](#parameters-for-wave-region-mode)
-  - [Human Genome](#human-genome)
-- [Uninstallation for Updates](#uninstallation)
-- [Workflow of BVSim](#workflow)
-- [Definitions of SVs Simulated by BVSim](#definitions)
-
-
 
 ## <a name="Installation"></a>Installation
 ### Create an envrionment called BVSim and install the dependencies
