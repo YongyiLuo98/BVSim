@@ -5,9 +5,10 @@
 
 - [Getting Started](#getting-started)
 - [Installation](#installation)
-- [Functions and Parameters](#parameters)
+- [General Functions and Parameters](#parameters)
   - [Shared Parameters](#shared-parameters)
-  - [Human Genome](#human-genome)
+    - [Write the Relative Positions of Simulated Variations](#write)
+    - [User-defined Block Regions with No Variations](#block)
   - [Uniform Mode](#uniform-mode)
   - [Complex SV Mode](#complex-sv-mode)
   - [Uniform Parallel Mode](#uniform-parallel-mode)
@@ -23,6 +24,7 @@
     - [Extract TR Regions and Generate the BED File](#step-1-extract-tr-regions)
     - [Job Submission for Wave Region Mode (Single Sample)](#job-submission-for-wave-region-mode-single-sample)
     - [Parameters for Wave Region Mode](#parameters-for-wave-region-mode)
+  - [Human Genome](#human-genome)
 - [Uninstallation for Updates](#uninstallation)
 - [Workflow of BVSim](#workflow)
 - [Definitions of SVs Simulated by BVSim](#definitions)
@@ -146,6 +148,7 @@ The BVSim package provides several functions (modes) and parameters for simulati
 | `-transmax` | int | Maximum translocation length | 450 |
 | `-block_region_bed_url` | str | local path of the block region BED file | None |
 
+#### <a name="write"></a>Write the Relative Positions of Simulated Variations
 If '-write' is present, in the '....SV_table_full.csv', the relative positions of all variations with respect to the consensus will be in the columns containing 'relative'. If this is not necessary, you can drop this parameter in your command as it extends the total time if there are lots of variations (1 min/ 10000 variations). However, it is still possible to update the relative positions after the simulation. We will save the intermediate documents for this, see the example below.
 
 #### Toy Example:
@@ -158,6 +161,8 @@ If you type the following you will get a file called: 'full_BV_1_con0_chr1_SVtab
 ```bash
 python your_home_path/BVSim/main/write_SV.py your_home_path/BVSim/save/ BV_1_con0_chr1_SVtable.csv BV_1_con0_chr1_tem_ins_dic.npy
 ```
+
+#### <a name="block"></a>User-defined Block Regions with No Variations
 The input of the '-block_region_bed_url' should be two columns of positions(start;end) without headers seperated by '\t'. To create a bed file, you can refer to the following example. In this case, positions from 0 to 999, from 3000 to 3999 cannot have any variation, so called blocked.
 
 #### Toy Example:
@@ -168,9 +173,6 @@ echo -e "0\t1000\n3000\t4000" > block_intervals.bed
 cd your_home_path
 python -m BVSim -seed 1 -rep 1 -write -snp 2000 -block_region_bed_url block_intervals.bed
 ```
-
-### <a name="human-genome"></a>Human Genome
-For human reference genome GRCh37 or GRCh38, users are recommended to call -hg19 or -hg38 in the command line for utilizing the HG002 and Cell dataset.
 
 ### <a name="uniform-mode"></a>Uniform Mode
 If you do not call any of the following parameters (-csv, -cores, -len_bins, -wave), the simulation will be generated one by one uniformly.
@@ -468,6 +470,26 @@ The table below summarizes the parameters available for Wave region mode:
 | `-p_del_region` | float | Probability of SV DEL in the user-defined region for deletion | 0.5 |
 | `-p_ins_region` | float | Probability of SV INS in the user-defined region for insertion | 0.5 |
 | `-region_bed_url` | str | Path of the BED file for the user-defined region | 'your_home_path/hg002/chr21_TR_unique.bed' |
+
+### <a name="human-genome"></a>Human Genome
+For the human genome, we derive the length distributions of SVs from HG002 and the 15 representative samples. For SNPs, we embed a learned substitution transition matrix from the dbSNP database. With a user-specified bin size, BVSim learns the distribution of SV positions per interval. It can model the SVs per interval as a multinomial distribution parameterized by the observed frequencies in HG002 (GRCh37/hg19 as reference) or sample the SV numbers per interval from a Gaussian distribution with the mean and standard deviation computed across the 15 samples (GRCh38/hg38 as reference). Calling ‘-hg19’ or ‘-hg38’ and specifying the chromosome name can activate the above procedures automatically for the human genome.
+
+In the following example, we use 5 cores and 500,000 as length of the intervals. The reference is chromosome 21 of hg19, so we call "-hg19 chr21" in the command line to utilize the default procedure. In addition, we generated 1,000 SNPs, 99 duplications, 7 inversions, 280 deletions, and 202 insertions. The ratio of deletions/insertions in the tandem repeat regions with respect to the total number is 0.810/0.828. We also set the minimum and maximum lengths of some SVs.
+#### Toy example
+```bash
+#!/bin/bash
+#SBATCH -J 0_hg19_chr21
+#SBATCH -N 1 -c 5
+#SBATCH --output=output.txt
+#SBATCH --error=err.txt
+
+source /opt/share/etc/miniconda3-py39.sh
+conda activate BVSim
+cd your_home_path
+python -m BVSim -ref your_home_path/hg19/hg19_chr21.fasta -save your_home_path/test_data/BVSim/ -seed 0 -rep 0 -cores 5 -len_bins 500000 -hg19 chr21 -mode probability -snp 1000 -sv_trans 0 -dup 99 -sv_inver 7 -sv_del 280 -sv_ins 202 -snv_del 0 -snv_ins 0 -p_del_region 0.810 -p_ins_region 0.828 -region_bed_url /home/project18/data/test_data/TGS/hg002/chr21_TR_unique.bed -delmin 50 -delmax 2964912 -insmin 50 -insmax 187524
+conda deactivate
+```
+
 
 ## <a name="uninstallation"></a>Uninstallation for Updates
 To update to the latest version of BVSim, you can uninstall and delete the cloned files. Then, try to clone from the new repository and install again.
