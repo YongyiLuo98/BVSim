@@ -13,16 +13,16 @@
   - [Complex SV Mode](#complex-sv-mode)
   - [Uniform Parallel Mode](#uniform-parallel-mode)
   - [Wave Mode](#wave-mode)
-    - [Requirements for the BED File](#requirements-for-the-bed-file)
-    - [Generating a BED File for a Single Sample in Wave Mode](#generating-a-bed-file-for-a-single-sample-in-wave-mode)
-    - [Job Submission for Wave Mode (Single Sample)](#job-submission-for-wave-mode-single-sample)
-    - [Generating BED Files for Multiple Samples in Wave Mode](#generating-bed-files-for-multiple-samples-in-wave-mode)
-    - [Job Submission for Wave Mode (Multiple Samples)](#job-submission-for-wave-mode-multiple-samples)
+    - [User-defined Sample(s) and Input BED file Requirements](#requirements-for-the-bed-file)
+    - [Generate a BED file for a Single Sample](#generating-a-bed-file-for-a-single-sample-in-wave-mode)
+    - [Job Submission for Single Sample (BED Format)](#job-submission-for-wave-mode-single-sample)
+    - [Generating BED Files for Multiple Samples](#generating-bed-files-for-multiple-samples-in-wave-mode)
+    - [Job Submission for Multiple Samples (BED Format)](#job-submission-for-wave-mode-multiple-samples)
     - [Important Note on File Placement](#important-note-on-file-placement)
     - [Parameters for Wave Mode](#parameters-for-wave-mode)
   - [Wave Region Mode](#wave-region-mode)
-    - [Extract TR Regions and Generate the BED File](#step-1-extract-tr-regions)
-    - [Job Submission for Wave Region Mode (Single Sample)](#job-submission-for-wave-region-mode-single-sample)
+    - [Extract User-defined Regions (e.g. TR region) and Generate the BED File](#step-1-extract-tr-regions)
+    - [Job Submission for Single Sample (BED Format)](#job-submission-for-wave-region-mode-single-sample)
     - [Parameters for Wave Region Mode](#parameters-for-wave-region-mode)
   - [Human Genome](#human-genome)
 - [Uninstallation for Updates](#uninstallation)
@@ -99,7 +99,7 @@ python -m BVSim --help
 python -m BVSim -h
 ```
 Note: You can only call BVSim in the cloned repository directory, while the installation must take place in the BVSim/main/ directory.
-#### Toy Example:
+#### Toy Example (Uniform mode):
 ```bash
 conda activate BVSim
 python -m BVSim -ref 'your_home_path/BVSim/empirical/sub_hg19_chr1.fasta' -seed 0 -rep 0 -write -snp 2000
@@ -177,6 +177,11 @@ python -m BVSim -seed 1 -rep 1 -write -snp 2000 -block_region_bed_url block_inte
 ### <a name="uniform-mode"></a>Uniform Mode
 If you do not call any of the following parameters (-csv, -cores, -len_bins, -wave), the simulation will be generated one by one uniformly.
 
+#### Toy Example (Uniform mode):
+```bash
+conda activate BVSim
+python -m BVSim -ref 'hg19_chr1.fasta' -seed 0 -rep 0 -write -snp 2000
+```
 ### <a name="complex-sv-mode"></a>Complex SV Mode
 Add -csv to your command, 18 types of Complex Structure Variations can be generated.
 
@@ -198,7 +203,7 @@ Add -csv to your command, 18 types of Complex Structure Variations can be genera
 * ID16: Inversion with 5’ Flanking Deletion and 3’ Flanking Duplication (DEL+INV+DUP)
 * ID17: Inverted Duplication with Flanking Triplication (DupTripDup-INV)
 * ID18: Insertion with Deletion (INSdel)
-#### Toy Example:
+#### Toy Example (CSV mode):
 ```bash
 cd your_home_path
 python -m BVSim -ref 'your_home_path/BVSim/empirical/sub_hg19_chr1.fasta' -save your_saving_url -seed 1 -rep 1 -csv -write -snp 2000
@@ -216,7 +221,7 @@ The lengths of the CSVs follow different Gaussian distributions with modifiable 
 ### <a name="uniform-parallel-mode"></a>Uniform Parallel Mode
 Add -cores, -len_bins to your command, and write a .job file (task01.job) as follows (-c 5 means 5 cores, should be the same as -cores 5), parallel simulation will be allowed.
 
-#### Toy Example: task01.job
+#### Toy Example (Uniform-parallel mode): task01.job
 ```bash
 #!/bin/bash
 #SBATCH -J uniform_parallel
@@ -237,9 +242,9 @@ sbatch task01.job
 
 ### <a name="wave-mode"></a>Wave Mode
 
-In Wave mode, you can provide a `.bed` file generated from an empirical `.vcf` file (for example, from HG002) or multiple BED files derived from samples of a selected population (such as the 15 Cell samples). This functionality allows you to generate non-uniform insertions and deletions with various options.
+In Wave mode, users can provide a `.bed` file generated from an empirical `.vcf` file (for example, from HG002) or multiple BED files derived from samples of a selected population (such as the 15 Cell samples). This functionality allows you to generate non-uniform insertions and deletions with various options.
 
-#### <a name="requirements-for-the-bed-file"></a>Requirements for the BED File
+#### <a name="requirements-for-the-bed-file"></a>User-defined Sample(s) and Input BED file Requirements
 
 The BED file must adhere to the following requirements:
 
@@ -249,7 +254,7 @@ The BED file must adhere to the following requirements:
 
 Each column should be separated by a tab character (`\t`) and must not include headers. Additionally, each BED file should represent variations on the same sequence.
 
-#### <a name="generating-a-bed-file-for-a-single-sample-in-wave-mode"></a>Generating a BED File for a Single Sample in Wave Mode
+#### <a name="generating-a-bed-file-for-a-single-sample-in-wave-mode"></a>Generate a BED file for a Single Sample
 
 To generate a single input BED file from the HG002 `.vcf` file of chromosome 21, you can use the following commands in your terminal:
 
@@ -279,9 +284,10 @@ awk -v OFS='\t' '{
     print $2, svtype, svlen;  # Print the location, SV type, and absolute SV length
 }' > /home/adduser/data/test_data/TGS/hg002/chr21_SV_Tier1.bed
 ```
-##### <a name="job-submission-for-wave-mode-single-sample"></a>Job Submission for Wave Mode (Single Sample)
+##### <a name="job-submission-for-wave-mode-single-sample"></a>Job Submission for Single Sample (BED Format)
 
 To utilize this single BED file, users should call '-indel_input_bed' in the command. Below is the example of a SLURM job script that you can use to run the Wave mode simulation with single empirical data:
+
 ```bash
 #!/bin/bash
 #SBATCH -J full_chr21_parallel
@@ -299,7 +305,7 @@ Submit the job file by:
 ```bash
 sbatch task02_single.job
 ```
-#### <a name="generating-bed-files-for-multiple-samples-in-wave-mode"></a>Generating BED Files for Multiple Samples in Wave Mode
+#### <a name="generating-bed-files-for-multiple-samples-in-wave-mode"></a>Generating BED Files for Multiple Samples
 
 In this section, we will outline the steps to generate `.bed` files for multiple cell samples from the original Excel spreadsheet, using the 15 Cell samples as an example.
 
@@ -359,7 +365,7 @@ for sample in AFR_samples:
     sample_df[columns_to_save].to_csv(bed_file_path, sep='\t', header=False, index=False)
 
 ```
-#### <a name="job-submission-for-wave-mode-multiple-samples"></a>Job Submission for Wave Mode (Multiple Samples)
+#### <a name="job-submission-for-wave-mode-multiple-samples"></a>Job Submission for Multiple Samples (BED Format)
 
 We provide an example of a Job submission script using SLURM for running the Wave mode with BVSim. This script utilizes the generated multiple sample BED files. Below is the example of a SLURM job script that you can use to run the Wave mode simulation with multiple samples:
 
@@ -411,7 +417,7 @@ The `-sum` parameter, when enabled, alters the total number of insertions and de
 
 In Wave region mode, you can specify different INDEL probabilities using a BED file defined by `region_bed_url`. For example, if you want to increase the insertion and deletion probabilities in the tandem repeat (TR) regions of hg19, you can follow these steps.
 
-#### <a name="step-1-extract-tr-regions"></a>Extract TR Regions and Generate the BED File
+#### <a name="step-1-extract-tr-regions"></a>Extract User-defined Regions (e.g. TR region) and Generate the BED File
 
 First, extract the TR regions' positions from UCSC and create a BED file with two columns (start; end) separated by a tab character (`\t`).
 
@@ -434,7 +440,7 @@ awk '$1 == "chr21"' your_home_path/hg002/windows_TR_unique.bed > your_home_path/
 # Create a final BED file with start and end positions
 awk '{print $2 "\t" $3}' your_home_path/hg002/windows_TR_unique_chr21.bed > your_home_path/hg002/chr21_TR_unique.bed
 ```
-#### <a name="job-submission-for-wave-region-mode-single-sample"></a>Job Submission for Wave Region Mode (Single Sample)
+#### <a name="job-submission-for-wave-region-mode-single-sample"></a>Job Submission for Single Sample (BED Format)
 In this example, we set the seed to `0` and use a replication ID of `4`. The job is configured to utilize `5` cores for parallel processing, with a bin size of `500,000`. We will generate `10,000` SNPs, along with `100` micro deletions and `100` micro insertions. The probabilities for these insertions and deletions are specified in the input BED file (`-indel_input_bed`) using the empirical mode (`-mode`). Additionally, we have set the probabilities for insertions (`-p_ins_region`) and deletions (`-p_del_region`) to approximately `0.6` for the total located in the TR region defined by `-region_bed_url`.
 
 ```bash
@@ -475,7 +481,7 @@ The table below summarizes the parameters available for Wave region mode:
 For the human genome, we derive the length distributions of SVs from HG002 and the 15 representative samples. For SNPs, we embed a learned substitution transition matrix from the dbSNP database. With a user-specified bin size, BVSim learns the distribution of SV positions per interval. It can model the SVs per interval as a multinomial distribution parameterized by the observed frequencies in HG002 (GRCh37/hg19 as reference) or sample the SV numbers per interval from a Gaussian distribution with the mean and standard deviation computed across the 15 samples (GRCh38/hg38 as reference). Calling ‘-hg19’ or ‘-hg38’ and specifying the chromosome name can activate the above procedures automatically for the human genome.
 
 In the following example, we use 5 cores and 500,000 as length of the intervals. The reference is chromosome 21 of hg19, so we call "-hg19 chr21" in the command line to utilize the default procedure. In addition, we generated 1,000 SNPs, 99 duplications, 7 inversions, 280 deletions, and 202 insertions. The ratio of deletions/insertions in the tandem repeat regions with respect to the total number is 0.810/0.828. We also set the minimum and maximum lengths of some SVs.
-#### Toy example
+#### Toy example (-hg19)
 ```bash
 #!/bin/bash
 #SBATCH -J 0_hg19_chr21
