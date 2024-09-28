@@ -13,8 +13,8 @@
   - [Complex SV Mode](#complex-sv-mode)
   - [Uniform Parallel Mode](#uniform-parallel-mode)
   - [Wave Mode](#wave-mode)
-    - [User-defined Sample(s) and Input BED file Requirements](#requirements-for-the-bed-file)
-    - [Generate a BED file for a Single Sample](#generating-a-bed-file-for-a-single-sample-in-wave-mode)
+    - [User-defined Sample(s) and Input BED File Requirements](#requirements-for-the-bed-file)
+    - [Generate a BED File for a Single Sample](#generating-a-bed-file-for-a-single-sample-in-wave-mode)
     - [Job Submission for Single Sample (BED Format)](#job-submission-for-wave-mode-single-sample)
     - [Generating BED Files for Multiple Samples](#generating-bed-files-for-multiple-samples-in-wave-mode)
     - [Job Submission for Multiple Samples (BED Format)](#job-submission-for-wave-mode-multiple-samples)
@@ -244,7 +244,7 @@ sbatch task01.job
 
 In Wave mode, users can provide a `.bed` file generated from an empirical `.vcf` file (for example, from HG002) or multiple BED files derived from samples of a selected population (such as the 15 Cell samples). This functionality allows you to generate non-uniform insertions and deletions with various options.
 
-#### <a name="requirements-for-the-bed-file"></a>User-defined Sample(s) and Input BED file Requirements
+#### <a name="requirements-for-the-bed-file"></a>User-defined Sample(s) and Input BED File Requirements
 
 The BED file must adhere to the following requirements:
 
@@ -254,7 +254,7 @@ The BED file must adhere to the following requirements:
 
 Each column should be separated by a tab character (`\t`) and must not include headers. Additionally, each BED file should represent variations on the same sequence.
 
-#### <a name="generating-a-bed-file-for-a-single-sample-in-wave-mode"></a>Generate a BED file for a Single Sample
+#### <a name="generating-a-bed-file-for-a-single-sample-in-wave-mode"></a>Generate a BED File for a Single Sample
 
 To generate a single input BED file from the HG002 `.vcf` file of chromosome 21, you can use the following commands in your terminal:
 
