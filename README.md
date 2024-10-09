@@ -37,7 +37,7 @@ To get started with BVSim, follow these steps to install and run the simulator:
 # Create an envrionment called BVSim and install the dependencies
 conda create -n BVSim python=3.11 numpy pandas biopython scipy seaborn psutil
 conda activate BVSim
-# Run the following to install pysam or use the latest guide from pysam installation
+# Run the following to install pysam or use the latest guide
 conda config --add channels defaults
 conda config --add channels conda-forge
 conda config --add channels bioconda
@@ -85,7 +85,7 @@ To start with, you need to install the dependent packages in an environment, for
 # Create an envrionment called BVSim and install the dependencies
 conda create -n BVSim python=3.11 numpy pandas biopython scipy seaborn psutil
 conda activate BVSim
-# Run the following to install pysam or use the latest guide from pysam installation
+# Run the following to install pysam or use the latest guide
 conda config --add channels defaults
 conda config --add channels conda-forge
 conda config --add channels bioconda
