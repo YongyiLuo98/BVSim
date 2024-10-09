@@ -35,7 +35,11 @@ To get started with BVSim, follow these steps to install and run the simulator:
 
 ```sh
 # Create an envrionment called BVSim and install the dependencies
-conda create -n BVSim python=3.11 numpy pandas pysam biopython scipy seaborn psutil
+conda create -n BVSim python=3.11 numpy pandas biopython scipy seaborn psutil
+conda activate BVSim
+# Run one of the following to install pysam
+conda install bioconda::pysam
+conda install bioconda/label/cf201901::pysam
 # Installzation
 ## Clone the repository
 cd your_home_path
@@ -77,7 +81,12 @@ python -m BVSim -seed 1 -rep 1 -write -snp 2000 -block_region_bed_url block_inte
 ### Create an envrionment called BVSim and install the dependencies
 To start with, you need to install the dependent packages in an environment, for example called BVSim.
 ```bash
-conda create -n BVSim python=3.11 numpy pandas pysam biopython scipy seaborn psutil
+# Create an envrionment called BVSim and install the dependencies
+conda create -n BVSim python=3.11 numpy pandas biopython scipy seaborn psutil
+conda activate BVSim
+# Run one of the following to install pysam
+conda install bioconda::pysam
+conda install bioconda/label/cf201901::pysam
 ```
 ### Clone the Repository
 Next, you need to clone the BVSim repository to your local machine. Execute the following command in your home directory:
