@@ -12,6 +12,7 @@
   - [Uniform Mode](#uniform-mode)
   - [Complex SV Mode](#complex-sv-mode)
   - [Uniform Parallel Mode](#uniform-parallel-mode)
+    - [Parameters for Uniform parallel Region Mode](#parameters-for-uniform-parallel-mode)
   - [Wave Mode](#wave-mode)
     - [User-defined Sample(s) and Input BED File Requirements](#requirements-for-the-bed-file)
     - [Generate a BED File for a Single Sample](#generating-a-bed-file-for-a-single-sample-in-wave-mode)
@@ -250,6 +251,12 @@ Submit the job file by:
 ```bash
 sbatch task01.job
 ```
+#### <a name="parameters-for-uniform-parallel-mode"></a>Parameters for Uniform parallel Mode
+
+| Parameter | Type | Description | Default |
+| --- | --- | --- | --- |
+| `-cores` | int | Number of kernels for parallel processing | 1 |
+| `-len_bins` | int | Length of bins for parallel processing | 50000 |
 
 ### <a name="wave-mode"></a>Wave Mode
 
