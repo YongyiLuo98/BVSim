@@ -11,8 +11,9 @@
     - [User-defined Block Regions with No Variations](#block)
   - [Uniform Mode](#uniform-mode)
   - [Complex SV Mode](#complex-sv-mode)
+    - [Parameters for CSV Mode](#parameters-for-csv-mode)
   - [Uniform Parallel Mode](#uniform-parallel-mode)
-    - [Parameters for Uniform parallel Region Mode](#parameters-for-uniform-parallel-mode)
+    - [Parameters for Uniform parallel Mode](#parameters-for-uniform-parallel-mode)
   - [Wave Mode](#wave-mode)
     - [User-defined Sample(s) and Input BED File Requirements](#requirements-for-the-bed-file)
     - [Generate a BED File for a Single Sample](#generating-a-bed-file-for-a-single-sample-in-wave-mode)
@@ -220,7 +221,7 @@ Add -csv to your command, 18 types of Complex Structure Variations can be genera
 cd your_home_path
 python -m BVSim -ref 'your_home_path/BVSim/empirical/sub_hg19_chr1.fasta' -save your_saving_url -seed 1 -rep 1 -csv -write -snp 2000
 ```
-
+#### <a name="parameters-for-csv-mode"></a>Parameters for CSV Mode
 The lengths of the CSVs follow different Gaussian distributions with modifiable means (-mu) and standard deviations (-sigma).
 | Parameter | Type | Description | Default |
 | --- | --- | --- | --- |
