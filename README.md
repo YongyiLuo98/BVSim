@@ -37,18 +37,19 @@ To get started with BVSim, follow these steps to install and run the simulator:
 # Create an envrionment called BVSim and install the dependencies
 conda create -n BVSim python=3.11 numpy pandas biopython scipy seaborn psutil
 conda activate BVSim
-# Run one of the following to install pysam
-conda install bioconda::pysam
-conda install bioconda/label/cf201901::pysam
+# Run the following to install pysam or use the latest guide from pysam installation
+conda config --add channels defaults
+conda config --add channels conda-forge
+conda config --add channels bioconda
+conda install pysam
 # Installzation
-## Clone the repository
+## Clone the repository in your home path
 cd your_home_path
 git clone https://github.com/YongyiLuo98/BVSim.git
-## Navigate to the main directory and install the package
-cd your_home_path/BVSim/main/
-pip install .
+## Navigate to the ~/BVSim/main directory and install the package
+pip install your_home_path/BVSim/main/.
 
-# Verify the installation
+# Verify the installation in your home path
 cd your_home_path
 python -m BVSim --help
 python -m BVSim -h
@@ -84,9 +85,11 @@ To start with, you need to install the dependent packages in an environment, for
 # Create an envrionment called BVSim and install the dependencies
 conda create -n BVSim python=3.11 numpy pandas biopython scipy seaborn psutil
 conda activate BVSim
-# Run one of the following to install pysam
-conda install bioconda::pysam
-conda install bioconda/label/cf201901::pysam
+# Run the following to install pysam or use the latest guide from pysam installation
+conda config --add channels defaults
+conda config --add channels conda-forge
+conda config --add channels bioconda
+conda install pysam
 ```
 ### Clone the Repository
 Next, you need to clone the BVSim repository to your local machine. Execute the following command in your home directory:
@@ -97,13 +100,12 @@ git clone https://github.com/YongyiLuo98/BVSim.git
 ### Navigate to the Main Directory and Install the Package
 Next, navigate to the .../BVSim/main/ directory to install the package:
 ```bash
-cd your_home_path/BVSim/main/
-pip install .
+pip install your_home_path/BVSim/main/.
 ```
 ### Verify the Installation
 After installation, you can verify it from your home directory. Execute the following commands:
 ```bash
-cd your_home_path
+cd
 python -m BVSim --help
 python -m BVSim -h
 ```
