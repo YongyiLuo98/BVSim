@@ -197,7 +197,7 @@ BV_<rep>_seq_<seqname>_tem_ins_dic.npy
 ```
 #### <a name="write"></a>Write the Relative Positions of Simulated Variations
 If you choose not to generate the relative positions during the initial simulation run (i.e., you do not include the `-write` flag), the columns for relative positions in the SV table will be empty. However, you can still update these relative positions later using the saved intermediate files.
-#### Steps to Write Relative Positions After Simulation
+##### Steps to Write Relative Positions After Simulation
 1. **Run the Initial Simulation**:  
 For example, you can execute:
 ```bash
