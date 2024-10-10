@@ -7,6 +7,7 @@
 - [Installation](#installation)
 - [General Functions and Parameters](#parameters)
   - [Shared Parameters](#shared-parameters)
+    - [Output Naming Conventions](#output)
     - [Write the Relative Positions of Simulated Variations](#write)
     - [User-defined Block Regions with No Variations](#block)
   - [Uniform Mode](#uniform-mode)
@@ -161,20 +162,56 @@ The BVSim package provides several functions (modes) and parameters for simulati
 | `-transmax` | int | Maximum translocation length | 450 |
 | `-block_region_bed_url` | str | local path of the block region BED file | None |
 
-#### <a name="write"></a>Write the Relative Positions of Simulated Variations
-If '-write' is present, in the '....SV_table_full.csv', the relative positions of all variations with respect to the consensus will be in the columns containing 'relative'. If this is not necessary, you can drop this parameter in your command as it extends the total time if there are lots of variations (1 min/ 10000 variations). However, it is still possible to update the relative positions after the simulation. We will save the intermediate documents for this, see the example below.
+#### <a name="output"></a>Output Naming Conventions
+When you run the simulation tool, the output files are named based on the sequence name you input or the parameter `rep` you set (repetition number). Below is a summary of the output files you can expect:
 
-#### Toy Example:
+1. **FASTA File**:  
+   The output FASTA file will be named as follows:
+```
+BV_<rep>_seq_<seqname>.fasta
+```
+This file contains the simulated sequence.
+
+2. **VCF File**:  
+The VCF file will be named:
+```
+BV_<rep>_seq_<seqname>.vcf
+```
+This file stores the simulated variations.
+
+3. **SV Table**:  
+The SV table will have different naming conventions depending on whether you choose to include relative positions:
+- If you include relative positions (by using the `-write` flag):
+  ```
+  BV_<rep>_seq_<seqname>_SVtable_full.csv
+  ```
+- If you do not include relative positions:
+  ```
+  BV_<rep>_seq_<seqname>_SVtable.csv
+  ```
+
+4. **Numpy File**:  
+The numpy file that records all inserted segments we need to update the relative positions will be named:
+```
+BV_<rep>_seq_<seqname>_tem_ins_dic.npy
+```
+#### <a name="write"></a>Write the Relative Positions of Simulated Variations
+If you choose not to generate the relative positions during the initial simulation run (i.e., you do not include the `-write` flag), the columns for relative positions in the SV table will be empty. However, you can still update these relative positions later using the saved intermediate files.
+#### Steps to Write Relative Positions After Simulation
+1. **Run the Initial Simulation**:  
+For example, you can execute:
 ```bash
 cd your_home_path
 python -m BVSim -seed 1 -rep 1 -snp 2000
 ```
-In this case you generated default number of elementary SVs and micro indels, as well as 20000 SNPs saved in the default directory. However, you did not write out the relative positions.
-If you type the following you will get a file called: 'full_BV_1_con0_chr1_SVtable.csv' in the same directory.
+In this case you generated default number of elementary SVs and micro indels, as well as 20000 SNPs saved in the default directory with `BV_1_seq_chr1_SVtable.csv`, `BV_1_seq_chr1_tem_ins_dic.npy`.
+2. **Update Relative Positions**:
+You can then run the following command to generate a table with the relative positions:
 ```bash
-python your_home_path/BVSim/main/write_SV.py your_home_path/BVSim/save/ BV_1_con0_chr1_SVtable.csv BV_1_con0_chr1_tem_ins_dic.npy
+python your_home_path/BVSim/main/write_SV.py your_home_path/BVSim/save/ BV_1_seq_chr1_SVtable.csv BV_1_seq_chr1_tem_ins_dic.npy
 ```
-
+This command will create a file called called `full_BV_1_seq_chr1_SVtable.csv` in the same directory, which will contain the relative positions for all variations with respect to the consensus sequence.
+By following this naming convention and steps, you can easily manage and update your output files as needed.
 #### <a name="block"></a>User-defined Block Regions with No Variations
 The input of the '-block_region_bed_url' should be two columns of positions(start;end) without headers seperated by '\t'. To create a bed file, you can refer to the following example. In this case, positions from 0 to 999, from 3000 to 3999 cannot have any variation, so called blocked.
 
