@@ -205,6 +205,7 @@ cd your_home_path
 python -m BVSim -seed 1 -rep 1 -snp 2000
 ```
 In this case you generated default number of elementary SVs and micro indels, as well as 20000 SNPs saved in the default directory with `BV_1_seq_chr1_SVtable.csv`, `BV_1_seq_chr1_tem_ins_dic.npy`.
+
 2. **Update Relative Positions**:
 You can then run the following command to generate a table with the relative positions:
 ```bash
