@@ -38,16 +38,378 @@ import shutil
 from multiprocessing import Pool, Manager
 
 import argparse
-
+from concurrent.futures import ProcessPoolExecutor, as_completed
+import gc
+import multiprocessing.shared_memory as shm
+import warnings
+warnings.filterwarnings('ignore', category=FutureWarning)
+from typing import List, Tuple, Union
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 print('Wave mode')
 
+
+
+def load_reference_sequence(fasta_path: str, seq_index: int) -> Tuple[str, str]:
+    """直接读取解压后的FASTA文件（不再处理.gz）"""
+    try:
+        with pysam.FastaFile(fasta_path) as fasta_file:
+            if seq_index >= len(fasta_file.references):
+                raise ValueError(f"Sequence index {seq_index} out of range")
+            seqname = fasta_file.references[seq_index]
+            return seqname, fasta_file.fetch(seqname)
+    except Exception as e:
+        raise RuntimeError(f"Failed to load reference sequence: {str(e)}")
+
+
+def write_template_fasta_con(args, seqname, consensus_):
+    # 生成输出文件路径
+    output_path = args.save + 'BV_' + str(args.rep) + "_seq_"+str(seqname) +".fasta"
+    # Prepare the new sequence
+    sequences = [consensus_]
+    new_sequences = []
+    for sequence in sequences:
+        record = SeqRecord(Seq(re.sub('[^GATCN-]', "", str(sequence).upper())), id=seqname, name=seqname, description="<custom description>")
+        new_sequences.append(record)
+
+    # Write the new sequence to a file
+    # with open(args.save + 'BV_' + str(args.rep) + "_seq_"+str(seqname) +".fasta", "w") as output_handle:
+    #     SeqIO.write(new_sequences, output_handle, "fasta")
+    # Write the new sequence to a file
+    with open(output_path, "w") as output_handle:
+        SeqIO.write(new_sequences, output_handle, "fasta")
+    
+    # 打印输出文件路径
+    print(f"Saved consensus sequence to {output_path}")
+
+def write_vcf(args, df, seqname, start_base, end_base):
+    # 生成输出文件路径
+    output_path = args.save + 'BV_' + str(args.rep) + '_seq_' + str(seqname) + ".vcf"
+    
+    # Get the current date
+    current_date = datetime.now().strftime('%Y%m%d')
+    
+    # Write the DataFrame to a VCF file
+    with open(output_path, 'w') as f:
+    # with open(args.save + 'BV_' + str(args.rep) + '_seq_' + str(seqname) + ".vcf", 'w') as f:
+        # VCF header
+        f.write('##fileformat=VCFv4.3\n')  # 更新为 VCF 4.3
+        f.write('##fileDate=' + current_date + '\n')
+        f.write('##source=Wave.py\n')
+        f.write('##reference=' + args.ref + ':' + str(start_base) + '-' + str(end_base) + '\n')
+        f.write('##contig=<ID=' + str(seqname) + ',length=' + str(end_base - start_base + 1) + '>\n')
+        
+        # INFO fields
+        f.write('##INFO=<ID=SVTYPE,Number=1,Type=String,Description="Type of structural variant">\n')
+        f.write('##INFO=<ID=SVLEN,Number=1,Type=Integer,Description="Length of the variant">\n')
+        f.write('##INFO=<ID=CSV_TYPE,Number=1,Type=String,Description="Type of CSV">\n')
+        f.write('##INFO=<ID=CSV_INDEX,Number=1,Type=Integer,Description="Index of CSV">\n')
+        f.write('##INFO=<ID=SUB,Number=1,Type=String,Description="Substitution">\n')
+        f.write('##INFO=<ID=smallINS,Number=1,Type=String,Description="Small insertion">\n')
+        f.write('##INFO=<ID=LEN,Number=1,Type=Integer,Description="Length of the variant">\n')
+        f.write('##INFO=<ID=smallDEL,Number=1,Type=String,Description="Small deletion">\n')
+        f.write('##INFO=<ID=DEL,Number=1,Type=String,Description="Deletion">\n')
+        f.write('##INFO=<ID=INS,Number=1,Type=String,Description="Insertion">\n')
+        f.write('##INFO=<ID=INV,Number=1,Type=String,Description="Inversion">\n')
+        
+        # FORMAT field
+        f.write('##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">\n')
+        
+        # Column headers
+        f.write('#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tSAMPLE_ID\n')
+        
+        # Write data
+        if df.empty:
+            print("Warning: DataFrame is empty. No data will be written to VCF.")
+        else:
+            df.to_csv(f, sep='\t', index=False, header=False)
+            
+    # 打印输出文件路径
+    print(f"Saved VCF file to {output_path}")
+
+def normalize_mode(mode_input: str) -> str:
+    """Normalize the mode input and handle typos/errors."""
+    mode_input = str(mode_input).strip().lower()
+    if mode_input.startswith('prob'):
+        return 'probability'
+    elif mode_input.startswith('emp'):
+        return 'empirical'
+    else:
+        print(f"Warning: Unknown mode '{mode_input}'. Defaulting to 'empirical'.")
+        return 'empirical'
+    
+
+def plot_sv_distribution(mode, args, df_sv, sv_type, chr_id, chr_length, len_bins, empirical_data=None, n_bed_path=None, output_dir=None):
+    """
+    绘制SV类型在染色体上的分布，并比较模拟数据和实际数据
+    
+    参数:
+    - df_sv: 包含SV信息的DataFrame (模拟数据)
+    - sv_type: 要绘制的SV类型 ('Deletion'或'Insertion')
+    - chr_id: 染色体ID
+    - chr_length: 染色体长度
+    - len_bins: 分箱大小 (来自args.len_bins)
+    - empirical_data: 实际数据 (单个样本的计数列表或多样本的均值和标准差字典)
+    - n_bed_path: N区域BED文件路径 (可选)
+    - output_dir: 输出目录 (来自args.save)
+    """
+    # 筛选指定类型的SV
+    df = df_sv[df_sv['SV_type'] == sv_type].copy()
+    if df.empty:
+        print(f"No {sv_type} data for {chr_id}")
+        return
+    
+    # 根据输入的分箱方式重新构建bins
+    devided_length = int(chr_length // len_bins)
+    remainder_length = chr_length - devided_length * len_bins
+    bins = np.arange(0, chr_length - remainder_length, len_bins).tolist()
+    bins.append(chr_length)
+    
+    # 使用新的bins对模拟数据统计每个bin的SV数量
+    df['dist_bin'] = pd.cut(df['Original_start'], bins)
+    sv_counts = df.groupby('dist_bin').size()
+    
+    # 确保模拟数据的计数长度与bins一致
+    sv_counts = sv_counts.reindex(pd.IntervalIndex.from_breaks(bins), fill_value=0)
+    
+    # 创建图形
+    plt.figure(figsize=(10, 6))
+    
+    # 计算X轴位置和范围
+    x_max = chr_length / 1e6  # 转换为Mbp单位
+    x = np.array([(bins[i] + bins[i + 1]) / 2 for i in range(len(bins) - 1)]) / 1e6  # 将点放在bin中心
+    
+    # 绘制模拟数据分布
+    sim_line = plt.plot(x, sv_counts.values, 'o-', color='blue', label=f'Simulated {sv_type} Count')[0]
+    
+    # 绘制实际数据分布
+    if empirical_data is not None:
+        if isinstance(empirical_data, dict):
+            # 多样本情况 - 绘制均值和标准差范围
+            plt.plot(x, empirical_data['mean'], 'o-', color='green', label=f'Samples {sv_type} Mean')
+            # plt.fill_between(x, 
+            #                  empirical_data['mean'] - empirical_data['std'], 
+            #                  empirical_data['mean'] + empirical_data['std'], 
+            #                  color='red', alpha=0.2, label=f'Empirical {sv_type} ±1 SD')
+            # 计算95%置信区间
+            confidence_interval_lower = empirical_data['mean'] - 1.96 * empirical_data['std']
+            confidence_interval_upper = empirical_data['mean'] + 1.96 * empirical_data['std']
+            
+            # 绘制95%置信区间
+            plt.fill_between(x, confidence_interval_lower, confidence_interval_upper, 
+                             color='green', alpha=0.5, label='95% Confidence Interval')
+        else:
+            # 单样本情况 - 直接绘制计数
+            plt.plot(x, empirical_data, 'o-', color='red', label=f'Sample {sv_type} Count')
+    
+    # 如果有N区域数据，绘制灰色背景
+    if n_bed_path and os.path.exists(n_bed_path):
+        df_N = pd.read_csv(n_bed_path, sep='\t', names=['chr', 'start', 'end'])
+        for _, row in df_N.iterrows():
+            start_norm = row['start'] / 1e6  # 转换为Mbp
+            end_norm = row['end'] / 1e6     # 转换为Mbp
+            plt.axvspan(start_norm, end_norm, color='gray', alpha=0.3)
+    
+    # 设置图形属性
+    # plt.title(f'{sv_type} Distribution Comparison on {chr_id} (bin size: {len_bins/1e3:.0f}kb)')
+    # plt.xlabel('Genomic Position (Mbp)')
+
+    # 确定样本类型
+    if empirical_data is not None:
+        sample_type = "Multiple Samples" if isinstance(empirical_data, dict) else "Single Sample"
+    else:
+        sample_type = "No Empirical Data"
+
+    # 根据模式生成模式描述
+    if mode == 'probability':
+        mode_desc = "Probability-based Simulation"
+    elif mode == 'empirical':
+        mode_desc = "Sample-matched Distribution"  # 或 "Empirical-matched Distribution"
+    else:
+        mode_desc = f"Invalid Mode ({mode}), showing Empirical"
+
+    # 组合标题 - 选择你喜欢的格式
+    title_v1 = f"{mode_desc} of {sv_type} SVs for {chr_id} from {sample_type}"
+    title_v2 = f"{sv_type} SV distribution in {chr_id} using {mode_desc} ({sample_type})"
+    title_v3 = f"{mode_desc} of {sv_type} for {chr_id} based on {sample_type}"
+
+    plt.title(title_v2)  # 选择最合适的版本
+    # plt.title(f'Simulated {sv_type} Distribution on Sequence {chr_id}')
+    plt.xlabel(f'Genomic Position (Mbp, bins = {len_bins/1e3:.0f}kb)')
+    plt.ylabel('Number of SVs')
+    
+    plt.xlim(0, x_max)
+    xticks = np.arange(0, x_max + 1, 5)  # 每5Mbp一个刻度
+    plt.xticks(xticks, rotation=90, ha='right')
+    plt.grid(True, linestyle='--', alpha=0.6)
+    
+    # 添加图例
+    handles = [sim_line]
+    if empirical_data is not None:
+        if isinstance(empirical_data, dict):
+            handles.append(plt.Line2D([], [], color='green', marker='o', label=f'Samples {sv_type} Mean'))
+            handles.append(mpatches.Patch(color='green', alpha=0.5, label='95% Confidence Interval'))
+        else:
+            handles.append(plt.Line2D([], [], color='red', marker='o', label=f'Sample {sv_type} Count'))
+    
+    if n_bed_path and os.path.exists(n_bed_path):
+        gray_patch = mpatches.Patch(color='gray', alpha=0.3, label='N Region')
+        handles.append(gray_patch)
+    
+    plt.legend(handles=handles, loc='upper right')
+    
+    # 调整布局防止标签被截断
+    plt.tight_layout()
+    
+    # 创建输出目录(如果不存在)并保存图形
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = os.path.join(output_dir, 'BV_' + str(args.rep) + '_seq_'+ f"{chr_id}_{sv_type}_distribution_comparison.png")
+    plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"Saved {sv_type} distribution comparison plot to {output_path}")
+
+# 将N positions转换为BED格式并保存
+def create_N_bed(n_positions, chr_id, output_dir):
+    # 将连续的N positions合并为区间
+    n_regions = []
+    if len(n_positions) > 0:
+        n_positions = sorted(n_positions)
+        start = n_positions[0]
+        prev = start
+        
+        for pos in n_positions[1:]:
+            if pos != prev + 1:
+                n_regions.append((start, prev))
+                start = pos
+            prev = pos
+        n_regions.append((start, prev))
+    
+    # 创建DataFrame并保存为BED文件
+    bed_data = [(chr_id, start, end) for start, end in n_regions]
+    df_N = pd.DataFrame(bed_data, columns=['chr', 'start', 'end'])
+    n_bed_path = os.path.join(output_dir, f"{chr_id}_N.bed")
+    df_N.to_csv(n_bed_path, sep='\t', header=False, index=False)
+    return n_bed_path
+
+
+def validate_empirical_data(empirical_data: List[float], 
+                          data_type: str, 
+                          expected_length: int) -> bool:
+    """Validate the empirical data input."""
+    if len(empirical_data) != expected_length:
+        print(f'Warning: empirical {data_type} info has wrong dimension '
+              f'(expected {expected_length}, got {len(empirical_data)}).')
+        return False
+    
+    if any(p < 0 for p in empirical_data):
+        print(f'Warning: empirical {data_type} contains negative values.')
+        return False
+    
+    return True
+    
+def calculate_probabilities(empirical_data: List[float], 
+                          data_type: str) -> List[float]:
+    """Calculate probabilities from empirical data with safety checks."""
+    total = sum(empirical_data)
+    if total <= 0:
+        print(f'Warning: Sum of {data_type} empirical data is {total}. '
+              'Using uniform probabilities.')
+        return [1.0/len(empirical_data)] * len(empirical_data)
+    return [p/total for p in empirical_data]
+
+def process_sv_data(empirical_data: List[float],
+                   sv_total_arg: int,
+                   data_type: str,
+                   number_seg: int,
+                   args_sum: bool,
+                   mode: str) -> Tuple[List[int], int]:
+    """
+    Process structural variant data with comprehensive error handling.
+    Returns integer counts and total.
+    """
+    if not validate_empirical_data(empirical_data, data_type, number_seg):
+        return [0] * number_seg, 0
+    
+    try:
+        if mode == 'probability':
+            probabilities = calculate_probabilities(empirical_data, data_type)
+            
+            total_sv = max(sum(empirical_data), sv_total_arg) if args_sum else sv_total_arg
+            
+            if total_sv <= 0:
+                print(f'Warning: Total {data_type.upper()} SV is {total_sv}. '
+                      'Using empirical values instead.')
+                # Convert empirical data to integers
+                empirical_ints = [int(round(x)) for x in empirical_data]
+                total_sv = sum(empirical_ints)
+                return empirical_ints, total_sv
+            
+            print(f'Total {data_type.upper()}: {total_sv}')
+            sv_per_segment = np.random.multinomial(total_sv, probabilities)
+            return list(sv_per_segment), total_sv
+        
+        elif mode == 'empirical':
+            # Round empirical data to integers
+            empirical_ints = [int(round(x)) for x in empirical_data]
+            total_sv = sum(empirical_ints)
+            print(f'Total {data_type.upper()}: {total_sv}')
+            return empirical_ints, total_sv
+        
+        else:
+            print(f'Error: Invalid mode {mode} for {data_type}. Using empirical values.')
+            empirical_ints = [int(round(x)) for x in empirical_data]
+            total_sv = sum(empirical_ints)
+            return empirical_ints, total_sv
+    
+    except Exception as e:
+        print(f'Error processing {data_type} data: {str(e)}. Using empirical values.')
+        empirical_ints = [int(round(x)) for x in empirical_data]
+        total_sv = sum(empirical_ints)
+        return empirical_ints, total_sv
+
+# 定义 SV_type 到缩写的映射规则
+def get_svtype_abbreviation(sv_type):
+    if sv_type == 'Small_Del':
+        return 'smallDEL'
+    elif sv_type == 'Small_Ins':
+        return 'smallINS'
+    else:
+        return sv_type[:3].upper()  # 其他类型取前三个字母并转为大写
+
+# 生成 INFO 列
+def generate_info_column(sv_types, sv_lens):
+    info_columns = []
+    for sv_type, sv_len in zip(sv_types, sv_lens):
+        if sv_type == 'Substitution':
+            info_columns.append('SUB')
+        elif sv_type == 'Small_Del':
+            info_columns.append(f'smallDEL;LEN={sv_len}')
+        elif sv_type == 'Small_Ins':
+            info_columns.append(f'smallINS;LEN={sv_len}')
+        elif sv_type == 'Deletion':
+            info_columns.append(f'SVTYPE=DEL;SVLEN={sv_len}')
+        elif sv_type == 'Insertion':
+            info_columns.append(f'SVTYPE=INS;SVLEN={sv_len}')
+        elif sv_type == 'Inversion':
+            info_columns.append(f'SVTYPE=INV;SVLEN={sv_len}')  # 明确添加INV类型
+        else:
+            info_columns.append('UNKNOWN')
+    return np.array(info_columns)
+
 def check_start_end(row):
-    if row['start'] >= row['end']:
-        print('Warning: The "start" value of the .bed file is greater than or equal to the "end" value.')
+    try:
+        start = int(row['start'])
+        end = int(row['end'])
+    except ValueError:
+        print('Error: "start" or "end" value is not an integer.')
+        return False
+    
+    if start >= end:
+        print('Warning: The "start" value is greater than or equal to the "end" value.')
         return False
     return True
 
-# 定义一个函数，该函数接收一行数据，返回该行'start'和'end'区域中的所有点.不包含end
+# Define a function that receives a row of data and returns all points in the 'start' and 'end' regions of the row. End is not included.
 def get_points(row):
     return set(range(row['start'], row['end']))
 
@@ -59,10 +421,185 @@ def DNA_complement(sequence):
 def error_handler(e):
     print('Error occurred:', e)
     
-def gen_consensus(xun, chr_id,ll_c, starts_seg, ends_seg, tem_seq_post, del_SV_per_segment, ins_SV_per_segment, del_snv_per_segment,ins_snv_per_segment,snp_per_segment, pai_pro_tem_, args, condition_dist_sv_del, len_SV_del,condition_dist_sv_ins,len_SV_ins,ins_selection,base_list,substitution_matrix,mis_selection,times,tmp_dir):   
+def SV_write_relative(SV_table_merged,ll_c,tem_ins_dic):
+    tem_SV_table_merged = SV_table_merged[SV_table_merged.iloc[:,1]==ll_c]
+    #original start: start of A
+    list_start1 = list(tem_SV_table_merged.iloc[:,3])
+    #start of B (dulplication or balanced trans)
+    list_start2 = list(tem_SV_table_merged.iloc[:,6])
+    whole_start_abs = list_start1+list_start2
+    #order SV from left
+    #set:merge repeated sites (e.g. 5 mismatch 5.5 ins)
+    #! 筛选出大于-1的
+    whole_start_abs = [item for item in whole_start_abs if item > 0]
+    whole_start_abs_set = sorted(list(set(whole_start_abs)))
+    present_len = 0
+    last_bone = 0
+    #inserted term
+    
+    for ll_var_index in range(len(whole_start_abs_set)):
+        
+        #! time 找到对应的行
+        tem_SV_table_merged2 = tem_SV_table_merged[(tem_SV_table_merged['Original_start']==whole_start_abs_set[ll_var_index]) |\
+                                        (tem_SV_table_merged['New_start']==whole_start_abs_set[ll_var_index])]
 
-    SV_loop_seg = 0
-    VCF_loop_seg = 0
+        for xun_nei_row in range(len(tem_SV_table_merged2)):
+            tem_row = tem_SV_table_merged2.iloc[xun_nei_row,:]
+            stand_line = int(tem_row[0])
+            #A
+            bone1s = tem_row[3]
+            bone1e = tem_row[4]
+            #B
+            bone2s = tem_row[6]
+            bone2e = tem_row[7]
+            if whole_start_abs_set[ll_var_index] in list_start1:
+            #ls_satrt1_index_df = int(list_start1.index(whole_start_abs_set[ll_var_index]))
+            #stand_line = int(SV_table_merged.iloc[ls_satrt1_index_df,0])
+            #tem_row = SV_table_merged.iloc[ls_satrt1_index_df,:]
+                #class of SV
+                if tem_row[2] in ['Substitution','Small_Ins','Small_Del','Deletion','Insertion','Inversion']:
+                    if tem_row[2] in ['Deletion','Small_Del']:
+                        inster_number_bone = bone1s-last_bone-1
+                        #index for consensus before start of current variation
+                        present_len = present_len + inster_number_bone
+                        #update last_bone as end of current variation
+                        last_bone = bone1e
+                        #deleted base has no new axis on consensus
+                        SV_table_merged.iloc[stand_line,10] = -1
+                        SV_table_merged.iloc[stand_line,11] = -1
+                        SV_table_merged.iloc[stand_line,12] = -1
+                        SV_table_merged.iloc[stand_line,13] = -1
+                    elif tem_row[2] in ['Substitution']:
+                        inster_number_bone = bone1s-last_bone
+                        #one to one map
+                        present_len = present_len + inster_number_bone
+                        #bone1s=bone1e=5
+                        last_bone = bone1e
+                        SV_table_merged.iloc[stand_line,10] = present_len
+                        SV_table_merged.iloc[stand_line,11] = present_len
+                        SV_table_merged.iloc[stand_line,12] = -1
+                        SV_table_merged.iloc[stand_line,13] = -1
+                    elif tem_row[2] in ['Small_Ins','Insertion']:
+                        inster_number_bone = bone1s-last_bone
+                        Ins_len_present = len(tem_ins_dic[bone1s])
+                        #inserted position on consensus: one pos:+1, inserted after current base
+                        SV_table_merged.iloc[stand_line,10] = present_len + inster_number_bone+1
+                        SV_table_merged.iloc[stand_line,12] = -1
+                        #on consensus: end of previous SV+ number of normal base+ inserted length
+                        present_len = present_len + inster_number_bone+Ins_len_present
+                        #end of current SV
+                        last_bone = bone1e
+                        SV_table_merged.iloc[stand_line,11] = present_len
+                        SV_table_merged.iloc[stand_line,13] = -1
+                    else:## this is the inversion
+                        inster_number_bone = bone1s-last_bone
+                        SV_table_merged.iloc[stand_line,10] = present_len + inster_number_bone
+                        SV_table_merged.iloc[stand_line,12] = -1
+                        #no loss from last_bone to bone1e
+                        #????
+                        #present_len = present_len + bone1e - last_bone
+                        present_len = present_len + bone1e - last_bone
+                        SV_table_merged.iloc[stand_line,11] = present_len
+                        SV_table_merged.iloc[stand_line,13] = -1 
+                        last_bone = bone1e
+                        
+                elif tem_row[2] in ['Duplication']:
+                        #copy A to B (A no change)
+                        #5-0=5
+                        inster_number_bone = bone1s-last_bone
+                        #Ins_len_present = len(tem_ins_dic[bone2s])
+                        #length of the copied: A
+                        #=6
+                        tem_plate_len = SV_table_merged.iloc[stand_line,5]
+                        #0+5=5
+                        SV_table_merged.iloc[stand_line,10] = present_len + inster_number_bone
+                        #SV_table_merged.iloc[stand_line,12] = present_len + inster_number_bone+1
+                        present_len = present_len + inster_number_bone + tem_plate_len-1
+                        #0+5+6-1=10
+                        SV_table_merged.iloc[stand_line,11] = present_len 
+                        #SV_table_merged.iloc[stand_line,13] = present_len
+                        last_bone = bone1e
+                        
+                elif tem_row[2] in ['Translocation']:
+                    #balanced translocation
+                    #A:5-10, B:12-18
+                    if tem_row[9] == 1:
+                        #ins B to A's pos:5-0-1=4
+                        inster_number_bone = bone1s-last_bone-1
+                        #0+4+1=5,the start of copied base is 5
+                        SV_table_merged.iloc[stand_line,10] = present_len + inster_number_bone+1
+                        #length of B: 18-12+1=7
+                        Ins_len_present = len(tem_ins_dic[bone1s-1])
+                        #0+4+7=11
+                        #end of A:current SV end=11
+                        present_len = present_len + inster_number_bone + Ins_len_present
+                        SV_table_merged.iloc[stand_line,11] = present_len
+                        last_bone = bone1e
+                    #!unbalanced trans:
+                    else:
+                        inster_number_bone = bone1s-last_bone-1
+                        #index for consensus before start of current variation
+                        present_len = present_len + inster_number_bone
+                        
+                        #deleted base has no new axis on consensus
+                        SV_table_merged.iloc[stand_line,10] = present_len+1
+                        SV_table_merged.iloc[stand_line,11] = present_len+1
+                        
+                        #update last_bone as end of current variation
+                        last_bone = bone1e
+        
+        
+            else:### in the list2: pos of B (only duplication and trans)
+                
+                if tem_row[2] in ['Duplication']:
+                    #if SV_table_merged.iloc[stand_line,10]==0:
+                        #bone2s:B_start
+                        #same as ins
+                        inster_number_bone = bone2s-last_bone
+                        #SV_table_merged.iloc[stand_line,10] = present_len + inster_number_bone+1
+                        #SV_table_merged.iloc[stand_line,12] = present_len + inster_number_bone+1
+                        SV_table_merged.iloc[stand_line,12] = present_len+inster_number_bone+1
+                        Ins_len_present = len(tem_ins_dic[bone2s])
+                        present_len = present_len + inster_number_bone+Ins_len_present
+                        
+                        SV_table_merged.iloc[stand_line,13] = present_len
+                        last_bone = bone2e
+                elif tem_row[2] in ['Translocation']:
+                    #balanced: similar to A
+                    if  tem_row[9] == 1:
+                        inster_number_bone = bone2s-last_bone-1
+                        SV_table_merged.iloc[stand_line,12] = present_len + inster_number_bone+1
+                        #inserted A's length
+                        Ins_len_present = len(tem_ins_dic[bone2s-1])
+                        present_len = present_len + inster_number_bone + Ins_len_present
+                        SV_table_merged.iloc[stand_line,13] = present_len
+                        last_bone = bone2e
+                    #unbalanced
+                    else:
+                        inster_number_bone = bone2s-last_bone-1
+                        inster_number_bone = bone2s-last_bone
+                        #A is a del
+                        SV_table_merged.iloc[stand_line,10] = -1
+                        SV_table_merged.iloc[stand_line,12] = present_len + inster_number_bone+1
+                        #length of A
+                        #Ins_len_present = len(tem_ins_dic[bone2s-1])
+                        #Ins_dic_sv_seg[ins_trans_loc] = copy.deepcopy(''.join(tem_seq_post[r_s:(r_s+l_s)]))
+                        #similar to insertion
+                        Ins_len_present = len(tem_ins_dic[bone2s])
+                        present_len = present_len + inster_number_bone + Ins_len_present
+                        #A is a del
+                        SV_table_merged.iloc[stand_line,11] = -1
+                        SV_table_merged.iloc[stand_line,13] = present_len
+                        last_bone = bone2e
+    return SV_table_merged
+    
+def gen_consensus(xun, starts_seg, ends_seg, tem_seq_post, del_SV_per_segment, ins_SV_per_segment, del_snv_per_segment,ins_snv_per_segment,snp_per_segment, pai_pro_tem_, args, condition_dist_sv_del, len_SV_del,condition_dist_sv_ins,len_SV_ins,ins_selection,base_list,substitution_matrix,mis_selection,times,tmp_dir):   
+    # 设置进程特定的种子
+    process_seed = args.seed * 10000 + xun
+    random.seed(process_seed)
+    np.random.seed(process_seed)
+
+    loop_index_seg = 0
     
     #copy the tem_seq_post with already the deleted part from Trans, Inv and DUP
     #!
@@ -74,7 +611,7 @@ def gen_consensus(xun, chr_id,ll_c, starts_seg, ends_seg, tem_seq_post, del_SV_p
     Ins_dic_sv_seg = {}
 
     # 从临时文件加载 unblock_region_vec[xun]
-    # unblock_region_vec_xun = np.load(os.path.join('tmp', 'unblock_region_vec_{}.npy'.format(xun)))
+    
     unblock_region_vec_xun = np.load(os.path.join(tmp_dir, 'unblock_region_vec_{}.npy'.format(xun)))
 
     unblock_region_seg = list(np.copy(unblock_region_vec_xun))
@@ -113,17 +650,13 @@ def gen_consensus(xun, chr_id,ll_c, starts_seg, ends_seg, tem_seq_post, del_SV_p
     max_length_numpy = True_del_number + True_ins_number + del_snv_number + ins_snv_number + snp
     
     # 初始化 numpy 数组
-    SV_table_seg = np.empty((int(max_length_numpy*2), 14), dtype=object)
-    VCF_table_seg = np.empty((int(max_length_numpy*2), 8), dtype=object)
+    # SV_table_seg = np.empty((int(max_length_numpy*2), 14), dtype=object)
+    # VCF_table_seg = np.empty((int(max_length_numpy*2), 8), dtype=object)
+    Unified_table_seg = np.empty((max_length_numpy, 10), dtype=object)
 
     
     circular_count_del_break = 0 
     
-    # 设置随机数种子使得结果可以复现
-    # 为每个进程设置一个基于输入的种子
-    seed_seg = args.seed + xun
-    random.seed(seed_seg)
-    np.random.seed(seed_seg)
 
     # 对每一段进行处理
     if not unblock_region_seg:# 如果segment是空集，输出警告
@@ -179,14 +712,15 @@ def gen_consensus(xun, chr_id,ll_c, starts_seg, ends_seg, tem_seq_post, del_SV_p
                 #replace deleted bases with -
                 #tem_seq_post[r_s:(r_s+l_s)] = '-'*l_s
 
-                SV_table_seg[SV_loop_seg] = [SV_loop_seg,ll_c,'Deletion',r_s,r_s+l_s-1,l_s,-1,-1,-1,-1,0,0,0,0]
-                SV_loop_seg = SV_loop_seg + 1 
+                # SV_table_seg[SV_loop_seg] = [SV_loop_seg,ll_c,'Deletion',r_s,r_s+l_s-1,l_s,-1,-1,-1,-1,0,0,0,0]
+                # SV_loop_seg = SV_loop_seg + 1 
                 
-                VCF_table_seg[VCF_loop_seg] = [str(chr_id), str(r_s), 'rs' + str(VCF_loop_seg), ''.join(tem_seq_post_seg[r_s-start_seg:r_s-start_seg+l_s]) + tem_seq_post_seg[r_s-start_seg+l_s], tem_seq_post_seg[r_s-start_seg+l_s], '.', 'PASS', 'SVTYPE=DEL;SVLEN='+str(l_s)]
+                # VCF_table_seg[VCF_loop_seg] = [str(chr_id), str(r_s), 'rs' + str(VCF_loop_seg), ''.join(tem_seq_post_seg[r_s-start_seg:r_s-start_seg+l_s]) + tem_seq_post_seg[r_s-start_seg+l_s], tem_seq_post_seg[r_s-start_seg+l_s], '.', 'PASS', 'SVTYPE=DEL;SVLEN='+str(l_s)]
 
-                VCF_loop_seg = VCF_loop_seg + 1  
+                # VCF_loop_seg = VCF_loop_seg + 1  
                 
-                
+                Unified_table_seg[loop_index_seg] = ['Deletion',r_s,r_s+l_s-1,l_s,-1,-1,-1,-1, ''.join(tem_seq_post_seg[r_s-start_seg:r_s-start_seg+l_s]) + tem_seq_post_seg[r_s-start_seg+l_s], tem_seq_post_seg[r_s-start_seg+l_s]]
+                loop_index_seg = loop_index_seg + 1
                 #! update the sequence after record the deleted part
                 #replace deleted bases with -
                 tem_seq_post_seg[r_s-start_seg:(r_s-start_seg+l_s)] = '-'*l_s          
@@ -271,14 +805,16 @@ def gen_consensus(xun, chr_id,ll_c, starts_seg, ends_seg, tem_seq_post, del_SV_p
 
             #num_collection.append(l_i)
             #only one record in the table for each remain_index2
-            SV_table_seg[SV_loop_seg] = [SV_loop_seg,ll_c,'Insertion',remain_index2,remain_index2,l_i,-1,-1,-1,-1,0,0,0,0]
-            SV_loop_seg = SV_loop_seg + 1
+            # SV_table_seg[SV_loop_seg] = [SV_loop_seg,ll_c,'Insertion',remain_index2,remain_index2,l_i,-1,-1,-1,-1,0,0,0,0]
+            # SV_loop_seg = SV_loop_seg + 1
 
-            # Add a row to the VCF_table for the micro insertion
-            VCF_table_seg[VCF_loop_seg] = [str(chr_id), str(remain_index2), 'rs' + str(VCF_loop_seg), tem_seq_post_seg[remain_index2-start_seg], tem_seq_post_seg[remain_index2-start_seg] + tem_ins.upper(), '.', 'PASS', 'SVTYPE=INS;SVLEN='+str(l_i)]
-            VCF_loop_seg = VCF_loop_seg + 1
+            # # Add a row to the VCF_table for the small insertion
+            # VCF_table_seg[VCF_loop_seg] = [str(chr_id), str(remain_index2), 'rs' + str(VCF_loop_seg), tem_seq_post_seg[remain_index2-start_seg], tem_seq_post_seg[remain_index2-start_seg] + tem_ins.upper(), '.', 'PASS', 'SVTYPE=INS;SVLEN='+str(l_i)]
+            # VCF_loop_seg = VCF_loop_seg + 1
+            Unified_table_seg[loop_index_seg] = ['Insertion',remain_index2,remain_index2,l_i,-1,-1,-1,-1, tem_seq_post_seg[remain_index2-start_seg], tem_seq_post_seg[remain_index2-start_seg] + tem_ins.upper()]
+            loop_index_seg = loop_index_seg + 1
         
-    #! micro del
+    #! small del
 
     ### finish the process of the duplication and insetion
     ## possible var bone
@@ -289,29 +825,45 @@ def gen_consensus(xun, chr_id,ll_c, starts_seg, ends_seg, tem_seq_post, del_SV_p
     #!!
     # 对每一段进行处理
     if not unblock_region_seg:# 如果segment是空集，输出警告
-        print("Warning: no available positions for micro deletions in no."+str(xun)+" segment")
+        print("Warning: no available positions for small deletions in no."+str(xun)+" segment")
         circular_count_micro_del_break = 1
     else:
         circular_count_micro_del_break = 0
         
     # 计算需要选择的位点的数量
     if not circular_count_micro_del_break:
-        ## micro deletion part
+        ## small deletion part
         len_unblock_region = len(unblock_region_seg)
         l_s_vec_ini = np.random.multinomial(n=len_unblock_region, pvals=pai_pro_tem_)
         
-        max_del = len_unblock_region // 2
+        # max_del = len_unblock_region // 2
 
+        # if args.snv_del is None:
+        #     del_snv_number = int(l_s_vec_ini[0])
+        #     #del_snv_number = test_number
+        # else:
+        #     del_snv_number = min(True_del_snv_number, max_del)
+        #     if True_del_snv_number > max_del:
+        #         print("Warning: The input for -snv_del is too large and has been automatically reduced. \
+        #             This is because each small deletion event requires at least one position, and there must be at least one position between two small deletion events. \
+        #                 Therefore, the maximum number of small deletions that can occur is half of the total number of positions available for events.")
+    
+        # Define the maximum small deletion length
+        max_small_deletion_length = 5  # Maximum small deletion length
+
+        # Calculate the space required for each micro deletion
+        min_gap = 1  # Minimum gap between each micro deletion
+
+        # Calculate the maximum number of micro deletions
+        max_micro_dels = (len_unblock_region + min_gap) // (max_small_deletion_length + min_gap)
         if args.snv_del is None:
             del_snv_number = int(l_s_vec_ini[0])
             #del_snv_number = test_number
         else:
-            del_snv_number = min(True_del_snv_number, max_del)
-            if True_del_snv_number > max_del:
-                print("Warning: The input for -snv_del is too large and has been automatically reduced. \
-                    This is because each micro deletion event requires at least one position, and there must be at least one position between two micro deletion events. \
-                        Therefore, the maximum number of micro deletions that can occur is half of the total number of positions available for events.")
-    
+            if True_del_snv_number > max_micro_dels:
+                del_snv_number = min(True_del_snv_number, max_micro_dels)
+                print("Warning: The input for small deletions is too large and has been automatically reduced. \
+                    Each micro deletion event requires space, including gaps between them.")
     
         len_seg_refine = max(unblock_region_seg)
         # for each deletion
@@ -335,9 +887,9 @@ def gen_consensus(xun, chr_id,ll_c, starts_seg, ends_seg, tem_seq_post, del_SV_p
                 #l_s = choice(del_length_list)
                 # count the times of resampling
                 circular_count_del = circular_count_del + 1
-                if circular_count_del> args.args.times:
+                if circular_count_del> args.times:
                     circular_count_del_break = 1
-                    print("Warning: No."+str(m_del)+ "  micro deletion sampling times exceeds "+str(times)+' times. Try: reduce number of variations, increase times or reference length.')
+                    print("Warning: No."+str(m_del)+ "  small deletion sampling times exceeds "+str(times)+' times. Try: reduce number of variations, increase times or reference length.')
                     break
                 else:
                     circular_count_del_break = 0
@@ -350,28 +902,30 @@ def gen_consensus(xun, chr_id,ll_c, starts_seg, ends_seg, tem_seq_post, del_SV_p
                 #block the part deleted in the first long del
                 unblock_region_seg = list(set(unblock_region_seg) -set(range(r_s-1,r_s+l_s+1)))
             
-                SV_table_seg[SV_loop_seg] = [SV_loop_seg,ll_c,'Micro_Del',r_s,r_s+l_s-1,l_s,-1,-1,-1,-1,0,0,0,0]
-                SV_loop_seg = SV_loop_seg + 1
+                # SV_table_seg[SV_loop_seg] = [SV_loop_seg,ll_c,'Small_Del',r_s,r_s+l_s-1,l_s,-1,-1,-1,-1,0,0,0,0]
+                # SV_loop_seg = SV_loop_seg + 1
 
                 #The ‘REF’ column is set to the original segment plus the base that is left after the deletion. 
                 #The ‘ALT’ column is set to the base that is left after the deletion.
-                # Add a row to the VCF_table for the micro deletion
+                # Add a row to the VCF_table for the small deletion
                 #VCF_table.loc[VCF_loop] = [str(chr_id), str(r_s), 'rs' + str(VCF_loop), tem_seq_post[r_s:r_s+l_s] + tem_seq_post[r_s+l_s], tem_seq_post[r_s+l_s], '.', 'PASS', 'SVTYPE=microDEL']
-                VCF_table_seg[VCF_loop_seg] = [str(chr_id), str(r_s), 'rs' + str(VCF_loop_seg), ''.join(tem_seq_post_seg[r_s-start_seg:r_s-start_seg+l_s]) + tem_seq_post_seg[r_s-start_seg+l_s], tem_seq_post_seg[r_s-start_seg+l_s], '.', 'PASS', 'microDEL;LEN='+str(l_s)]
+                # VCF_table_seg[VCF_loop_seg] = [str(chr_id), str(r_s), 'rs' + str(VCF_loop_seg), ''.join(tem_seq_post_seg[r_s-start_seg:r_s-start_seg+l_s]) + tem_seq_post_seg[r_s-start_seg+l_s], tem_seq_post_seg[r_s-start_seg+l_s], '.', 'PASS', 'microDEL;LEN='+str(l_s)]
 
-                VCF_loop_seg = VCF_loop_seg + 1  
+                # VCF_loop_seg = VCF_loop_seg + 1  
 
+                Unified_table_seg[loop_index_seg] = ['Small_Del',r_s,r_s+l_s-1,l_s,-1,-1,-1,-1, ''.join(tem_seq_post_seg[r_s-start_seg:r_s-start_seg+l_s]) + tem_seq_post_seg[r_s-start_seg+l_s], tem_seq_post_seg[r_s-start_seg+l_s]]
+                loop_index_seg = loop_index_seg + 1
                 #replace deleted bases with -
                 tem_seq_post_seg[r_s-start_seg:(r_s-start_seg+l_s)] = '-'*l_s
             else:
                 break
                 
         
-    ### micro insertions
+    ### small insertions
     # 对每一段进行处理
     #if not left_del_region_snv:# 如果segment是空集，输出警告
     if not unblock_region_seg:# 如果segment是空集，输出警告
-        print("Warning: no available positions for micro insertions in no."+str(xun)+" segment")
+        print("Warning: no available positions for small insertions in no."+str(xun)+" segment")
         circular_count_micro_ins_break = 1
     else:
         circular_count_micro_ins_break = 0
@@ -418,17 +972,19 @@ def gen_consensus(xun, chr_id,ll_c, starts_seg, ends_seg, tem_seq_post, del_SV_p
 
             #num_collection.append(l_i)
             #only one record in the table for each remain_index2
-            SV_table_seg[SV_loop_seg] = [SV_loop_seg,ll_c,'Micro_Ins',remain_index2,remain_index2,l_i,-1,-1,-1,-1,0,0,0,0]
-            SV_loop_seg = SV_loop_seg + 1
+            # SV_table_seg[SV_loop_seg] = [SV_loop_seg,ll_c,'Small_Ins',remain_index2,remain_index2,l_i,-1,-1,-1,-1,0,0,0,0]
+            # SV_loop_seg = SV_loop_seg + 1
 
-            # Add a row to the VCF_table for the micro insertion
-            VCF_table_seg[VCF_loop_seg] = [str(chr_id), str(remain_index2), 'rs' + str(VCF_loop_seg), tem_seq_post_seg[remain_index2-start_seg], tem_seq_post_seg[remain_index2-start_seg] + tem_ins.upper(), '.', 'PASS', 'microINS;LEN='+str(l_i)]
-            VCF_loop_seg = VCF_loop_seg + 1  
+            # # Add a row to the VCF_table for the small insertion
+            # VCF_table_seg[VCF_loop_seg] = [str(chr_id), str(remain_index2), 'rs' + str(VCF_loop_seg), tem_seq_post_seg[remain_index2-start_seg], tem_seq_post_seg[remain_index2-start_seg] + tem_ins.upper(), '.', 'PASS', 'microINS;LEN='+str(l_i)]
+            # VCF_loop_seg = VCF_loop_seg + 1  
+            Unified_table_seg[loop_index_seg] = ['Small_Ins',remain_index2,remain_index2,l_i,-1,-1,-1,-1, tem_seq_post_seg[remain_index2-start_seg], tem_seq_post_seg[remain_index2-start_seg] + tem_ins.upper()]
+            loop_index_seg = loop_index_seg + 1
 
         #snp=int(l_s_vec_ini[1])
     
     #! start SNP
-    ### micro insertions
+    ### small insertions
     # 对每一段进行处理
     #if not undel_region_snv:# 如果segment是空集，输出警告
     if not unblock_region_seg:# 如果segment是空集，输出警告
@@ -471,34 +1027,47 @@ def gen_consensus(xun, chr_id,ll_c, starts_seg, ends_seg, tem_seq_post, del_SV_p
                 if ll in unblock_region_seg:
                     unblock_region_seg.remove(ll)
 
-                SV_table_seg[SV_loop_seg] = [SV_loop_seg,ll_c,'Substitution',ll,ll,1,-1,-1,-1,-1,0,0,0,0]
-                SV_loop_seg = SV_loop_seg + 1
-                # Add a row to the VCF_table for the substitution
-                VCF_table_seg[VCF_loop_seg] = [str(chr_id), str(ll), 'rs' + str(VCF_loop_seg), tem_seq_post_seg[ll-start_seg], bexixuan_.upper(), '.', 'PASS', 'SUB']
-                VCF_loop_seg = VCF_loop_seg + 1
+                # SV_table_seg[SV_loop_seg] = [SV_loop_seg,ll_c,'Substitution',ll,ll,1,-1,-1,-1,-1,0,0,0,0]
+                # SV_loop_seg = SV_loop_seg + 1
+                # # Add a row to the VCF_table for the substitution
+                # VCF_table_seg[VCF_loop_seg] = [str(chr_id), str(ll), 'rs' + str(VCF_loop_seg), tem_seq_post_seg[ll-start_seg], bexixuan_.upper(), '.', 'PASS', 'SUB']
+                # VCF_loop_seg = VCF_loop_seg + 1
+
+                Unified_table_seg[loop_index_seg] = ['Substitution',ll,ll,1,-1,-1,-1,-1, tem_seq_post_seg[ll-start_seg], bexixuan_.upper()]
+                loop_index_seg = loop_index_seg + 1
 
                 tem_seq_post_seg[int(ll-start_seg)] = copy.deepcopy(bexixuan_)
             else:
                 print("Error: Invalid base for substitution")
         
+    # # 找出所有元素都是 None 或空字符串的行
+    # mask1 = np.all((SV_table_seg == None) | (SV_table_seg == ''), axis=1)
+
+    # # 删除这些行
+    # SV_table_seg = SV_table_seg[~mask1]
+
+    # # 现在你可以将 SV_table 转换为 DataFrame
+    # SV_table_seg = pd.DataFrame(SV_table_seg, columns=['Index','Index_con','SV_type','Original_start',\
+    #                                     'Original_end','Len_SV','New_start','New_end','New_len_SV','Balanced Trans Flag','relative start1','relative end1','relative start2','relative end2'])
+
+    # # 对 VCF_table 重复相同的步骤
+    # mask2 = np.all((VCF_table_seg == None) | (VCF_table_seg == ''), axis=1)
+    # VCF_table_seg = VCF_table_seg[~mask2]
+    # VCF_table_seg = pd.DataFrame(VCF_table_seg, columns=['CHROM', 'POS', 'ID', 'REF', 'ALT', 'QUAL', 'FILTER', 'INFO'])
+
+    for idx in sorted(Ins_dic_sv_seg, reverse=True):
+        tem_seq_post_seg.insert(idx-start_seg, Ins_dic_sv_seg[idx])
+
     # 找出所有元素都是 None 或空字符串的行
-    mask1 = np.all((SV_table_seg == None) | (SV_table_seg == ''), axis=1)
-
+    mask1 = np.all((Unified_table_seg == None) | (Unified_table_seg == ''), axis=1)
     # 删除这些行
-    SV_table_seg = SV_table_seg[~mask1]
+    Unified_table_seg = Unified_table_seg[~mask1]
+    # 输出处理后的表格形状
+    print('Table shape:', Unified_table_seg.shape)
 
-    # 现在你可以将 SV_table 转换为 DataFrame
-    SV_table_seg = pd.DataFrame(SV_table_seg, columns=['Index','Index_con','SV_type','Original_start',\
-                                        'Original_end','Len_SV','New_start','New_end','New_len_SV','Balanced Trans Flag','relative start1','relative end1','relative start2','relative end2'])
-
-    # 对 VCF_table 重复相同的步骤
-    mask2 = np.all((VCF_table_seg == None) | (VCF_table_seg == ''), axis=1)
-    VCF_table_seg = VCF_table_seg[~mask2]
-    VCF_table_seg = pd.DataFrame(VCF_table_seg, columns=['CHROM', 'POS', 'ID', 'REF', 'ALT', 'QUAL', 'FILTER', 'INFO'])
-    
     print('No.'+str(xun)+' seg is saving files')
-    return SV_table_seg, VCF_table_seg, unblock_region_seg, Ins_dic_sv_seg, tem_seq_post_seg
-
+    #return SV_table_seg, VCF_table_seg, unblock_region_seg, Ins_dic_sv_seg, tem_seq_post_seg
+    return Unified_table_seg, Ins_dic_sv_seg, tem_seq_post_seg
 
 # 定义一个全局变量来存储最大的磁盘使用率
 def monitor_disk_usage(max_disk_usage):
@@ -524,7 +1093,6 @@ def monitor_memory(threshold, max_mem_usage, max_mem_usage_gb,tmp_dir):
         for p in multiprocessing.active_children():
             p.terminate()
         # Remove temporary directory
-        # shutil.rmtree('tmp')
         shutil.rmtree(tmp_dir)
         raise SystemExit("Program stopped due to excessive memory usage.")
     return max_mem_usage, max_mem_usage_gb
@@ -534,6 +1102,8 @@ def monitor_memory(threshold, max_mem_usage, max_mem_usage_gb,tmp_dir):
 def parse_args():
     parser = argparse.ArgumentParser(description='BVSim')
     parser.add_argument('-ref', type=str, help='Input reference local path', default='default_ref')
+    parser.add_argument('-seq_index', type=int, default=0, 
+                      help='Index of sequence to use (0-based). Default: 0 (first sequence)')
     parser.add_argument('-save', type=str, help='local path for saving', default=os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', 'save')+ '/')
     parser.add_argument('-seed', type=int, help='Seed for random number generator', default=999)
     parser.add_argument('-times', type=int, help='Number of times', default=10)
@@ -585,38 +1155,43 @@ def main():
     monitor_process.start()
 
     print('start')
-    # Create a temporary directory if not exists
-    # if not os.path.exists('tmp'):
-    #     os.makedirs('tmp')
     # Create a temporary directory if not exists under args.save
-    tmp_dir = os.path.join(args.save, 'tmp')
+    timestamp = time.strftime("%Y%m%d_%H%M%S")  # 格式化时间戳
+    os.makedirs(args.save, exist_ok=True)
+    tmp_dir = os.path.join(args.save, f'tmp_{timestamp}')  # 使用时间戳作为文件夹名称
+
     if not os.path.exists(tmp_dir):
         os.makedirs(tmp_dir)
-        
-    # print('Trans:'+str(args.sv_trans))
-    # print('Inversion:'+str(args.sv_inver))
-    # print('DUP:'+str(args.sv_dup))
 
+    # random.seed(args.seed)
+    # np.random.seed(args.seed) 
+    # 设置全局随机数种子
     random.seed(args.seed)
-    np.random.seed(args.seed) 
+    np.random.seed(args.seed)
+    os.environ['PYTHONHASHSEED'] = str(args.seed)
+
+    # 打印种子信息
+    print(f"Global Random Seed: {args.seed}")
 
     # fasta文件路径
-    fasta_file_path = args.ref
-    fasta_file = pysam.FastaFile(fasta_file_path)
+    # fasta_file_path = args.ref
+    # fasta_file = pysam.FastaFile(fasta_file_path)
 
-    # 获取最长的序列
-    seqname = fasta_file.references[0]
-    BestRefSeq = fasta_file.fetch(seqname)
-
+    # # 获取最长的序列
+    # seqname = fasta_file.references[0]
+    # ref_seq = fasta_file.fetch(seqname)
+    # 1. 加载参考序列
+    seqname, ref_seq = load_reference_sequence(args.ref, args.seq_index)
+    print(f"Loaded reference sequence: {seqname} (length: {len(ref_seq)})")
     #! whole chr
     chr_id=seqname
-    print('reference\'s name:'+str(seqname))
+    # print('reference\'s name:'+str(seqname))
     start_base=0
-    end_base=len(BestRefSeq)
-    real_con1 = copy.deepcopy(BestRefSeq[start_base:end_base+1])
+    end_base=len(ref_seq)
+    real_con1 = copy.deepcopy(ref_seq[start_base:end_base+1])
     chr_length = len(real_con1)
-    del BestRefSeq
-    print('Length of ref:'+str(chr_length))
+    del ref_seq
+    # print('Length of ref:'+str(chr_length))
 
     all_positions = set(range(len(real_con1)))
     # print('N pos:'+str(len(n_positions)))
@@ -628,6 +1203,7 @@ def main():
         # collection of N positions
         n_positions = [i for i, char in enumerate(real_con1) if char == 'N']
         n_positions_set = set(n_positions)
+        n_bed_path = create_N_bed(n_positions, chr_id, tmp_dir)
         #all_positions = set(range(len(real_con1)))
         print('N pos:'+str(len(n_positions)))
         
@@ -772,14 +1348,21 @@ def main():
     #circular_count_trans = 0
 
     #! Translocation, Inversion and Duplication
-    #record original positions and translocated positions
-    SV_table = pd.DataFrame(columns=['Index','Index_con','SV_type','Original_start',\
-                                        'Original_end','Len_SV','New_start','New_end','New_len_SV','Balanced Trans Flag','relative start1','relative end1','relative start2','relative end2'])
+    # #record original positions and translocated positions
+    # SV_table = pd.DataFrame(columns=['Index','Index_con','SV_type','Original_start',\
+    #                                     'Original_end','Len_SV','New_start','New_end','New_len_SV','Balanced Trans Flag','relative start1','relative end1','relative start2','relative end2'])
 
-    #record location, original base (REF) and alternative base (ALT) for substitution, INDEL
-    # Define a DataFrame to store the information
-    VCF_table = pd.DataFrame(columns=['CHROM', 'POS', 'ID', 'REF', 'ALT', 'QUAL', 'FILTER', 'INFO'])
+    # #record location, original base (REF) and alternative base (ALT) for substitution, INDEL
+    # # Define a DataFrame to store the information
+    # VCF_table = pd.DataFrame(columns=['CHROM', 'POS', 'ID', 'REF', 'ALT', 'QUAL', 'FILTER', 'INFO'])
     
+    max_csv_len = args.sv_trans + args.sv_dup
+    max_sim_len = args.sv_inver
+    # 初始化 numpy 数组
+    SV_table = np.empty((int(max_csv_len+2), 8), dtype=object)  # 减少列数，去掉 'Index' 和 'Index_con'
+    VCF_table = np.empty((int(max_csv_len*4), 4), dtype=object)  # 减少列数
+    # 初始化统一的 numpy 数组
+    Unified_table = np.empty((max_sim_len, 10), dtype=object)
     
     ll_c=0
     len_seg_refine = len(real_con1)
@@ -795,6 +1378,8 @@ def main():
     SV_loop = 0
     VCF_loop = 0
     CSV_loop = 0
+    #! loop index
+    loop_index = 0
     times = args.times
     updated_con = []
     ratio_b_trans = 0.5
@@ -840,13 +1425,25 @@ def main():
     # copied_base_sv_prob = [4/5,1/10,1/10]
     # copied_base_sv_base = [50,100,500]
     
-    dupmin = args.dupmin
-    dupmax = args.dupmax
+    dupmin = max(50, int(args.dupmin))
+    dupmax = int(args.dupmax)
+
+    # 检查和调整 dupmax
+    if dupmin >= dupmax:
+        print(f"Warning: dupmin ({dupmin}) is greater than dupmax ({dupmax}). Adjusting dupmax to {dupmin + 50}.")
+        dupmax = dupmin + 50  # 自动调整 dupmax
     # 计算整数范围
     dup_range = np.arange(dupmin, dupmax + 1)
    
-    invmin = args.invmin
-    invmax = args.invmax
+    # 处理倒位长度范围
+    invmin = max(50, int(args.invmin))  # 确保最小值不低于50bp且为整数
+    invmax = int(args.invmax)           # 确保为整数
+
+    # 检查和调整 invmax（完全同款逻辑）
+    if invmin >= invmax:
+        print(f"Warning: invmin ({invmin}) is greater than invmax ({invmax}). "
+            f"Adjusting invmax to {invmin + 50}.")
+        invmax = invmin + 50  # 自动调整为比 invmin 大50bp
 
     # 计算整数范围
     inv_range = np.arange(invmin, invmax + 1)
@@ -858,8 +1455,13 @@ def main():
     len_SV_inver = inv_range.tolist()
     condition_dist_sv_inver = inv_sv_prob
     
-    transmin = args.transmin
-    transmax = args.transmax
+    transmin = max(50, int(args.transmin))
+    transmax = int(args.transmax)
+
+    # 检查和调整 transmax（同款逻辑）
+    if transmin >= transmax:
+        print(f"Warning: transmin ({transmin}) is greater than transmax ({transmax}). Adjusting transmax to {transmin + 50}.")
+        transmax = transmin + 50  # 自动调整为比 transmin 大50的值
 
     # 计算整数范围
     trans_range = np.arange(transmin, transmax + 1)
@@ -945,13 +1547,16 @@ def main():
                 #collect inserted pos
                 location_insert_trans.append(ins_trans_loc)
                 #write SV table
-                SV_table.loc[SV_loop] = [SV_loop,ll_c,'Translocation',r_s,r_s+l_s-1,l_s,ins_trans_loc,ins_trans_loc,l_s,0,0,0,0,0]### cut and paste
+                #SV_table.loc[SV_loop] = [SV_loop,ll_c,'Translocation',r_s,r_s+l_s-1,l_s,ins_trans_loc,ins_trans_loc,l_s,0,0,0,0,0]### cut and paste
+                SV_table[SV_loop] = ['Translocation',r_s,r_s+l_s-1,l_s,ins_trans_loc,ins_trans_loc,l_s,0]### cut and paste
                 SV_loop = SV_loop + 1
                 
-                VCF_table.loc[VCF_loop] = [str(chr_id), str(r_s), 'rs' + str(VCF_loop), ''.join(tem_seq_post[r_s:r_s+l_s]) + tem_seq_post[r_s+l_s], tem_seq_post[r_s+l_s], '.', 'PASS', 'SVTYPE=DEL;SVLEN='+str(l_s)+';CSV_TYPE=unbalanedTrans;CSV_INDEX='+str(CSV_loop)]
+                #VCF_table.loc[VCF_loop] = [str(chr_id), str(r_s), 'rs' + str(VCF_loop), ''.join(tem_seq_post[r_s:r_s+l_s]) + tem_seq_post[r_s+l_s], tem_seq_post[r_s+l_s], '.', 'PASS', 'SVTYPE=DEL;SVLEN='+str(l_s)+';CSV_TYPE=unbalanedTrans;CSV_INDEX='+str(CSV_loop)]
+                VCF_table[VCF_loop] = [r_s, ''.join(tem_seq_post[r_s:r_s+l_s]) + tem_seq_post[r_s+l_s], tem_seq_post[r_s+l_s], 'SVTYPE=DEL;SVLEN='+str(l_s)+';CSV_TYPE=unbalanedTrans;CSV_INDEX='+str(CSV_loop)]
                 VCF_loop = VCF_loop+ 1
 
-                VCF_table.loc[VCF_loop] = [str(chr_id), str(ins_trans_loc), 'rs' + str(VCF_loop), tem_seq_post[ins_trans_loc], tem_seq_post[ins_trans_loc] + ''.join(tem_seq_post[r_s:(r_s+l_s)]), '.', 'PASS', 'SVTYPE=INS;SVLEN='+str(l_s)+';CSV_TYPE=unbalanedTrans;CSV_INDEX='+str(CSV_loop)]
+                #VCF_table.loc[VCF_loop] = [str(chr_id), str(ins_trans_loc), 'rs' + str(VCF_loop), tem_seq_post[ins_trans_loc], tem_seq_post[ins_trans_loc] + ''.join(tem_seq_post[r_s:(r_s+l_s)]), '.', 'PASS', 'SVTYPE=INS;SVLEN='+str(l_s)+';CSV_TYPE=unbalanedTrans;CSV_INDEX='+str(CSV_loop)]
+                VCF_table[VCF_loop] = [ins_trans_loc, tem_seq_post[ins_trans_loc], tem_seq_post[ins_trans_loc] + ''.join(tem_seq_post[r_s:(r_s+l_s)]), 'SVTYPE=INS;SVLEN='+str(l_s)+';CSV_TYPE=unbalanedTrans;CSV_INDEX='+str(CSV_loop)]
                 VCF_loop = VCF_loop + 1
                 
                 CSV_loop = CSV_loop + 1
@@ -1018,19 +1623,24 @@ def main():
                     inserted_string2 = copy.deepcopy(''.join(tem_seq_post[r_s2:(r_s2+l_s2)]))
 
                     # write SV table
-                    SV_table.loc[SV_loop] = [SV_loop,ll_c,'Translocation',r_s,r_s+l_s-1,l_s,r_s2,r_s2+l_s2-1,l_s2,1,0,0,0,0]### copy and paste
+                    #SV_table.loc[SV_loop] = [SV_loop,ll_c,'Translocation',r_s,r_s+l_s-1,l_s,r_s2,r_s2+l_s2-1,l_s2,1,0,0,0,0]### copy and paste
+                    SV_table[SV_loop] = ['Translocation',r_s,r_s+l_s-1,l_s,r_s2,r_s2+l_s2-1,l_s2,1]### copy and paste
                     SV_loop = SV_loop + 1
                     
-                    VCF_table.loc[VCF_loop] = [str(chr_id), str(r_s), 'rs' + str(VCF_loop), ''.join(tem_seq_post[r_s:r_s+l_s]) + tem_seq_post[r_s+l_s], tem_seq_post[r_s+l_s], '.', 'PASS', 'SVTYPE=DEL;SVLEN='+str(l_s)+';CSV_TYPE=balanedTrans;CSV_INDEX='+str(CSV_loop)]
+                    #VCF_table.loc[VCF_loop] = [str(chr_id), str(r_s), 'rs' + str(VCF_loop), ''.join(tem_seq_post[r_s:r_s+l_s]) + tem_seq_post[r_s+l_s], tem_seq_post[r_s+l_s], '.', 'PASS', 'SVTYPE=DEL;SVLEN='+str(l_s)+';CSV_TYPE=balanedTrans;CSV_INDEX='+str(CSV_loop)]
+                    VCF_table[VCF_loop] = [r_s, ''.join(tem_seq_post[r_s:r_s+l_s]) + tem_seq_post[r_s+l_s], tem_seq_post[r_s+l_s], 'SVTYPE=DEL;SVLEN='+str(l_s)+';CSV_TYPE=balanedTrans;CSV_INDEX='+str(CSV_loop)]
                     VCF_loop = VCF_loop+ 1
                     
-                    VCF_table.loc[VCF_loop] = [str(chr_id), str(r_s), 'rs' + str(VCF_loop), ''.join(tem_seq_post[r_s2:r_s2+l_s2]) + tem_seq_post[r_s2+l_s2], tem_seq_post[r_s2+l_s2], '.', 'PASS', 'SVTYPE=DEL;SVLEN='+str(l_s2)+';CSV_TYPE=balanedTrans;CSV_INDEX='+str(CSV_loop)]
+                    #VCF_table.loc[VCF_loop] = [str(chr_id), str(r_s), 'rs' + str(VCF_loop), ''.join(tem_seq_post[r_s2:r_s2+l_s2]) + tem_seq_post[r_s2+l_s2], tem_seq_post[r_s2+l_s2], '.', 'PASS', 'SVTYPE=DEL;SVLEN='+str(l_s2)+';CSV_TYPE=balanedTrans;CSV_INDEX='+str(CSV_loop)]
+                    VCF_table[VCF_loop] = [r_s, ''.join(tem_seq_post[r_s2:r_s2+l_s2]) + tem_seq_post[r_s2+l_s2], tem_seq_post[r_s2+l_s2], 'SVTYPE=DEL;SVLEN='+str(l_s2)+';CSV_TYPE=balanedTrans;CSV_INDEX='+str(CSV_loop)]
                     VCF_loop = VCF_loop+ 1
 
-                    VCF_table.loc[VCF_loop] = [str(chr_id), str(ins_trans_loc1), 'rs' + str(VCF_loop), tem_seq_post[ins_trans_loc1], tem_seq_post[ins_trans_loc1] + inserted_string1, '.', 'PASS', 'SVTYPE=INS;SVLEN='+str(l_s)+';CSV_TYPE=balanedTrans;CSV_INDEX='+str(CSV_loop)]
+                    #VCF_table.loc[VCF_loop] = [str(chr_id), str(ins_trans_loc1), 'rs' + str(VCF_loop), tem_seq_post[ins_trans_loc1], tem_seq_post[ins_trans_loc1] + inserted_string1, '.', 'PASS', 'SVTYPE=INS;SVLEN='+str(l_s)+';CSV_TYPE=balanedTrans;CSV_INDEX='+str(CSV_loop)]
+                    VCF_table[VCF_loop] = [ins_trans_loc1, tem_seq_post[ins_trans_loc1], tem_seq_post[ins_trans_loc1] + inserted_string1, 'SVTYPE=INS;SVLEN='+str(l_s)+';CSV_TYPE=balanedTrans;CSV_INDEX='+str(CSV_loop)]
                     VCF_loop = VCF_loop + 1
                     
-                    VCF_table.loc[VCF_loop] = [str(chr_id), str(ins_trans_loc2), 'rs' + str(VCF_loop), tem_seq_post[ins_trans_loc2], tem_seq_post[ins_trans_loc2] + inserted_string2, '.', 'PASS', 'SVTYPE=INS;SVLEN='+str(l_s2)+';CSV_TYPE=balanedTrans;CSV_INDEX='+str(CSV_loop)]
+                    #VCF_table.loc[VCF_loop] = [str(chr_id), str(ins_trans_loc2), 'rs' + str(VCF_loop), tem_seq_post[ins_trans_loc2], tem_seq_post[ins_trans_loc2] + inserted_string2, '.', 'PASS', 'SVTYPE=INS;SVLEN='+str(l_s2)+';CSV_TYPE=balanedTrans;CSV_INDEX='+str(CSV_loop)]
+                    VCF_table[VCF_loop] = [ins_trans_loc2, tem_seq_post[ins_trans_loc2], tem_seq_post[ins_trans_loc2] + inserted_string2, 'SVTYPE=INS;SVLEN='+str(l_s2)+';CSV_TYPE=balanedTrans;CSV_INDEX='+str(CSV_loop)]
                     VCF_loop = VCF_loop + 1
                     
                     CSV_loop = CSV_loop + 1
@@ -1097,11 +1707,14 @@ def main():
             for ll_rever in range(r_s,r_s+l_s):
                 tem_seq_post[ll_rever] = copy.deepcopy(original_string_reverse[int(ll_rever-r_s)])
 
-            SV_table.loc[SV_loop] = [SV_loop,ll_c,'Inversion',r_s,r_s+l_s-1,l_s,r_s,r_s+l_s-1,l_s,-1,0,0,0,0]
-            SV_loop = SV_loop + 1
+            # SV_table.loc[SV_loop] = [SV_loop,ll_c,'Inversion',r_s,r_s+l_s-1,l_s,r_s,r_s+l_s-1,l_s,-1,0,0,0,0]
+            # SV_loop = SV_loop + 1
             
-            VCF_table.loc[VCF_loop] = [str(chr_id), str(r_s), 'rs' + str(VCF_loop), ''.join(original_string), ''.join(original_string_reverse), '.', 'PASS', 'SVTYPE=INV;SVLEN='+str(l_s)]
-            VCF_loop= VCF_loop + 1
+            # VCF_table.loc[VCF_loop] = [str(chr_id), str(r_s), 'rs' + str(VCF_loop), ''.join(original_string), ''.join(original_string_reverse), '.', 'PASS', 'SVTYPE=INV;SVLEN='+str(l_s)]
+            # VCF_loop= VCF_loop + 1
+
+            Unified_table[loop_index] = ['Inversion',r_s,r_s+l_s-1,l_s,r_s,r_s+l_s-1,l_s,-1,''.join(original_string), ''.join(original_string_reverse)]
+            loop_index = loop_index + 1
         else:
             break
         
@@ -1161,6 +1774,8 @@ def main():
         #ratio_re_dup:neighbor duplication (right after the copied area)
         if not circular_count_dup_break:
             circular_count_dup=0
+            #! Remove the copied region from unblock_region_sv (关键修改点)
+            unblock_region_sv = list(set(unblock_region_sv) - set(range(remain_index2 - tem_copied_base + 1, remain_index2 + 1)))
             #neighbor duplication
             if p_re_dup_random_num<ratio_re_dup:
                 #later ins cannot be sampled from this point in other_sites
@@ -1182,10 +1797,13 @@ def main():
                 #     left_del_region_sv.remove(remain_index2)
                 Ins_dic_sv[remain_index2] = ''.join(tem_seq_post[remain_index2-tem_copied_base+1:remain_index2+1])
                 ins_len_dup = len(Ins_dic_sv[remain_index2])
-                SV_table.loc[SV_loop] = [SV_loop,ll_c,'Duplication',remain_index2-tem_copied_base+1,remain_index2,tem_copied_base,remain_index2,remain_index2,ins_len_dup,-1,0,0,0,0]
+                
+                #SV_table.loc[SV_loop] = [SV_loop,ll_c,'Duplication',remain_index2-tem_copied_base+1,remain_index2,tem_copied_base,remain_index2,remain_index2,ins_len_dup,-1,0,0,0,0]
+                SV_table[SV_loop] = ['Duplication',remain_index2-tem_copied_base+1,remain_index2,tem_copied_base,remain_index2,remain_index2,ins_len_dup,-1]
                 SV_loop = SV_loop + 1
                 
-                VCF_table.loc[VCF_loop] = [str(chr_id), str(remain_index2), 'rs' + str(VCF_loop), tem_seq_post[remain_index2], tem_seq_post[remain_index2]+''.join(tem_seq_post[remain_index2-tem_copied_base+1:remain_index2+1]), '.', 'PASS', 'SVTYPE=DUP;SVLEN='+str(tem_copied_base)]
+                #VCF_table.loc[VCF_loop] = [str(chr_id), str(remain_index2), 'rs' + str(VCF_loop), tem_seq_post[remain_index2], tem_seq_post[remain_index2]+''.join(tem_seq_post[remain_index2-tem_copied_base+1:remain_index2+1]), '.', 'PASS', 'SVTYPE=DUP;SVLEN='+str(tem_copied_base)]
+                VCF_table[VCF_loop] = [remain_index2, tem_seq_post[remain_index2], tem_seq_post[remain_index2]+''.join(tem_seq_post[remain_index2-tem_copied_base+1:remain_index2+1]), 'SVTYPE=DUP;SVLEN='+str(tem_copied_base)]
                 VCF_loop= VCF_loop + 1
             #remote duplication
             else:
@@ -1207,10 +1825,12 @@ def main():
                 Ins_dic_sv[remain_index22] = ''.join(tem_seq_post[remain_index2-tem_copied_base+1:remain_index2+1])
                 ins_len_dup = len(Ins_dic_sv[remain_index22])
 
-                SV_table.loc[SV_loop] = [SV_loop,ll_c,'Duplication',remain_index2-tem_copied_base+1,remain_index2,tem_copied_base,remain_index22,remain_index22,ins_len_dup,-1,0,0,0,0]
+                #SV_table.loc[SV_loop] = [SV_loop,ll_c,'Duplication',remain_index2-tem_copied_base+1,remain_index2,tem_copied_base,remain_index22,remain_index22,ins_len_dup,-1,0,0,0,0]
+                SV_table[SV_loop] = ['Duplication',remain_index2-tem_copied_base+1,remain_index2,tem_copied_base,remain_index22,remain_index22,ins_len_dup,-1]
                 SV_loop = SV_loop + 1
                 
-                VCF_table.loc[VCF_loop] = [str(chr_id), str(remain_index22), 'rs' + str(VCF_loop), tem_seq_post[remain_index22], tem_seq_post[remain_index22]+''.join(tem_seq_post[remain_index2-tem_copied_base+1:remain_index2+1]), '.', 'PASS', 'SVTYPE=DUP;SVLEN=CSV_TYPE=DisDup;CSV_INDEX='+str(CSV_loop)]
+                #VCF_table.loc[VCF_loop] = [str(chr_id), str(remain_index22), 'rs' + str(VCF_loop), tem_seq_post[remain_index22], tem_seq_post[remain_index22]+''.join(tem_seq_post[remain_index2-tem_copied_base+1:remain_index2+1]), '.', 'PASS', 'SVTYPE=DUP;SVLEN=CSV_TYPE=DisDup;CSV_INDEX='+str(CSV_loop)]
+                VCF_table[VCF_loop] = [remain_index22,tem_seq_post[remain_index22], tem_seq_post[remain_index22]+''.join(tem_seq_post[remain_index2-tem_copied_base+1:remain_index2+1]), 'SVTYPE=DUP;SVLEN=CSV_TYPE=DisDup;CSV_INDEX='+str(CSV_loop)]
                 VCF_loop= VCF_loop + 1
                 
                 CSV_loop = CSV_loop+1  
@@ -1260,13 +1880,11 @@ def main():
         unblock_vec_lengths.append(len(unblock_region_vec[i]))
 
         # 将 unblock_region_vec[i] 存储到临时文件
-        # np.save(os.path.join('tmp', 'unblock_region_vec_{}.npy'.format(i)), unblock_region_vec[i])
-        # 将 unblock_region_vec[i] 存储到临时文件
         np.save(os.path.join(tmp_dir, 'unblock_region_vec_{}.npy'.format(i)), unblock_region_vec[i])
         
     seg_probabilities = [p_length/sum(unblock_vec_lengths) for p_length in unblock_vec_lengths]
     
-    mode = args.mode # or probability weights
+    # mode = args.mode # or probability weights
 
     #! Single sample
     if args.indel_input_bed:
@@ -1428,7 +2046,7 @@ def main():
             INS_sampled_values.append(value)
 
         
-        ins_empirical = INS_sampled_values
+        # ins_empirical = INS_sampled_values
 
         # 转换为numpy数组
         all_data_DEL = np.array(all_data_DEL)
@@ -1451,7 +2069,32 @@ def main():
             DEL_sampled_values.append(value)
 
         
-        del_empirical = DEL_sampled_values
+        # del_empirical = DEL_sampled_values
+        #! 0409 区分mode
+        mode = normalize_mode(args.mode)
+
+        if mode == 'empirical':
+            # 使用总体均值
+            ins_empirical = means_INS
+            del_empirical = means_DEL
+        elif mode == 'probability':
+            # 从正态分布中抽样
+            INS_sampled_values = []
+            for mean, std_dev in zip(means_INS, std_devs_INS):
+                value = max(0, int(np.random.normal(mean, std_dev)))
+                INS_sampled_values.append(value)
+            ins_empirical = INS_sampled_values
+            
+            DEL_sampled_values = []
+            for mean, std_dev in zip(means_DEL, std_devs_DEL):
+                value = max(0, int(np.random.normal(mean, std_dev)))
+                DEL_sampled_values.append(value)
+            del_empirical = DEL_sampled_values
+        else:
+            # 默认使用总体均值
+            print(f"Warning: Invalid mode '{mode}'. Using empirical means.")
+            ins_empirical = means_INS
+            del_empirical = means_DEL
             
         # 计算插入的长度分布
         length_counts_ins = pd.Series(all_len_SV_INS).value_counts(normalize=True)
@@ -1480,8 +2123,13 @@ def main():
             
     #! 对概率进行归一化
     #! length probabilities
-    insmin = args.insmin
-    insmax = args.insmax
+    insmin = max(50, int(args.insmin))
+    insmax = int(args.insmax)
+
+    # 检查和调整 insmax（同款逻辑）
+    if insmin >= insmax:
+        print(f"Warning: insmin ({insmin}) is greater than insmax ({insmax}). Adjusting insmax to {insmin + 50}.")
+        insmax = insmin + 50  # 自动调整为比 insmin 大50的值
 
     # 选择长度在insmin和insmax之间的子集
     selected_lengths = [l for l in len_SV_ins if insmin <= l <= insmax]
@@ -1499,9 +2147,14 @@ def main():
     # 更新len_SV_ins和condition_dist_sv_ins
     len_SV_ins = selected_lengths
     condition_dist_sv_ins = normalized_probabilities
+
     #modifiable deletion length
-    delmin = args.delmin
-    delmax = args.delmax
+    delmin = max(50, int(args.delmin))
+    delmax = int(args.delmax)
+    # 检查和调整 delmax
+    if delmin >= delmax:
+        print(f"Warning: delmin ({delmin}) is greater than delmax ({delmax}). Adjusting delmax to {delmin + 50}.")
+        delmax = delmin + 50  # 自动调整为比 delmin 大50的值
 
     # 选择长度在delmin和delmax之间的子集
     selected_lengths = [all_del_len for all_del_len in len_SV_del if delmin <= all_del_len <= delmax]
@@ -1520,51 +2173,92 @@ def main():
     len_SV_del = selected_lengths
     condition_dist_sv_del = normalized_probabilities
 
-    #! number per segment
-    #args.sum
-    if len(del_empirical) == number_seg:
-        if mode == 'probability':
-            del_probabilities = [p_del/sum(del_empirical) for p_del in del_empirical]
-            if args.sum:
-                total_del_sv = max(sum(del_empirical),args.sv_del)
-            else:
-                total_del_sv = args.sv_del
-            print('Total DEL:'+str(total_del_sv))
-            del_SV_per_segment = np.random.multinomial(total_del_sv, del_probabilities)
+    # #! number per segment
+    # #args.sum
+    # if len(del_empirical) == number_seg:
+    #     if mode == 'probability':
+    #         del_probabilities = [p_del/sum(del_empirical) for p_del in del_empirical]
+    #         if args.sum:
+    #             total_del_sv = max(sum(del_empirical),args.sv_del)
+    #         else:
+    #             total_del_sv = args.sv_del
+    #         print('Total DEL:'+str(total_del_sv))
+    #         del_SV_per_segment = np.random.multinomial(total_del_sv, del_probabilities)
 
-        elif mode == 'empirical':
-            total_del_sv = sum(del_empirical)
-            del_SV_per_segment = del_empirical
-            print('Total DEL:'+str(total_del_sv))
-        else:
-            print('MODE TYPE ERROR')
-    else:
-        print('warning: empirical del info wrong dimension')
+    #     elif mode == 'empirical':
+    #         total_del_sv = sum(del_empirical)
+    #         del_SV_per_segment = del_empirical
+    #         print('Total DEL:'+str(total_del_sv))
+    #     else:
+    #         print('MODE TYPE ERROR')
+    # else:
+    #     print('warning: empirical del info wrong dimension')
 
-    if len(ins_empirical) == number_seg:
-        if mode == 'probability':
-            ins_probabilities = [p_ins/sum(ins_empirical) for p_ins in ins_empirical]
-            if args.sum:
-                total_ins_sv = max(sum(ins_empirical),args.sv_ins)
-            else:
-                total_ins_sv = args.sv_ins
-            print('Total INS:'+str(total_ins_sv))
-            ins_SV_per_segment = np.random.multinomial(total_ins_sv, ins_probabilities)
-        elif mode == 'empirical':
-            total_ins_sv = sum(ins_empirical)
-            ins_SV_per_segment = ins_empirical
-            print('Total INS:'+str(total_ins_sv))
-        else:
-            print('MODE TYPE ERROR')
-    else:
-        print('warning: empirical ins info wrong dimension')
+    # if len(ins_empirical) == number_seg:
+    #     if mode == 'probability':
+    #         ins_probabilities = [p_ins/sum(ins_empirical) for p_ins in ins_empirical]
+    #         if args.sum:
+    #             total_ins_sv = max(sum(ins_empirical),args.sv_ins)
+    #         else:
+    #             total_ins_sv = args.sv_ins
+    #         print('Total INS:'+str(total_ins_sv))
+    #         ins_SV_per_segment = np.random.multinomial(total_ins_sv, ins_probabilities)
+    #     elif mode == 'empirical':
+    #         total_ins_sv = sum(ins_empirical)
+    #         ins_SV_per_segment = ins_empirical
+    #         print('Total INS:'+str(total_ins_sv))
+    #     else:
+    #         print('MODE TYPE ERROR')
+    # else:
+    #     print('warning: empirical ins info wrong dimension')
 
 
-    del ins_empirical, del_empirical
+    # del ins_empirical, del_empirical
         
-    print('DEL counts per segment:'+str(del_SV_per_segment))
-    print('INS counts per segment:'+str(ins_SV_per_segment))
+    # print('DEL counts per segment:'+str(del_SV_per_segment))
+    # print('INS counts per segment:'+str(ins_SV_per_segment))
+    #! 0403
+    # Main processing
     
+    mode = normalize_mode(args.mode)
+    # Process deletions
+    del_SV_per_segment, total_del_sv = process_sv_data(
+        empirical_data=del_empirical,
+        sv_total_arg=args.sv_del,
+        data_type='del',
+        number_seg=number_seg,
+        args_sum=args.sum,
+        mode=mode
+    )
+
+    # Process insertions
+    ins_SV_per_segment, total_ins_sv = process_sv_data(
+        empirical_data=ins_empirical,
+        sv_total_arg=args.sv_ins,
+        data_type='ins',
+        number_seg=number_seg,
+        args_sum=args.sum,
+        mode=mode
+    )
+
+    # Handle cases where processing failed
+    if del_SV_per_segment is None:
+        print("Error: Invalid deletion data. Please check your input.")
+        del_SV_per_segment = [0] * number_seg  # Default to zero counts
+        total_del_sv = 0
+
+    if ins_SV_per_segment is None:
+        print("Error: Invalid insertion data. Please check your input.")
+        ins_SV_per_segment = [0] * number_seg  # Default to zero counts
+        total_ins_sv = 0
+
+    # Clean up (optional)
+    # del ins_empirical, del_empirical
+
+    print('DEL counts per segment:', del_SV_per_segment)
+    print('INS counts per segment:', ins_SV_per_segment)
+
+    #! end
     len_unblock_region = len(unblock_region_sv)
  
     if 0 <= args.snv_del < 1:
@@ -1582,8 +2276,8 @@ def main():
     else:
         snp = min(int(args.snp), len_unblock_region)
 
-    print('Micro del:'+str(int(del_snv_number)))
-    print('Micro ins:'+str(int(ins_snv_number)))
+    print('Small del:'+str(int(del_snv_number)))
+    print('Small ins:'+str(int(ins_snv_number)))
     print('SNP:'+str(int(snp)))
     del_snv_per_segment = np.random.multinomial(del_snv_number, seg_probabilities)
     ins_snv_per_segment = np.random.multinomial(ins_snv_number, seg_probabilities)     
@@ -1608,7 +2302,7 @@ def main():
     start_time2 = time.time()
 
     #! delete variables to release 内存
-    # del BestRefSeq, n_positions, n_positions_set, all_positions, all_region_sv
+    # del ref_seq, n_positions, n_positions_set, all_positions, all_region_sv
     # del segments_initial, all_region_sv_array
     # del unblock_region_sv, undel_region_sv, left_del_region_sv
     #! define the function for each segment
@@ -1629,35 +2323,91 @@ def main():
     
     #! 计算每个进程的复杂度
     #complexities = [del_SV + ins_SV for del_SV, ins_SV in zip(del_SV_per_segment, ins_SV_per_segment)]
+    # # 计算每个进程的复杂度
+    # complexities = [del_SV + ins_SV + length for del_SV, ins_SV, length in zip(del_SV_per_segment, ins_SV_per_segment, unblock_vec_lengths)]
+    
+    # # 创建一个包含进程索引和复杂度的列表
+    # indexed_complexities = list(enumerate(complexities))
+
+    # # 根据复杂度对进程进行排序
+    # sorted_complexities = sorted(indexed_complexities, key=lambda x: x[1], reverse=True)
+    # #number of kernel
+    # pool = Pool(args.cores)
+    # #xun_list=list(range(number_seg))
+    # # 创建一个包含进程索引的列表，按照复杂度从大到小排序
+    # xun_list = [index for index, complexity in sorted_complexities]
+    # print('Optimal order of running due to computing complexity：'+str(xun_list))
+    # #xun_list = list(range(number_seg))
+    # #args.cores = 5  # set the number of processes equal to the number of cores
+
+    # pool = Pool(args.cores)
+    # results = []
+
+    # for xun in xun_list:
+    #     result = pool.apply_async(gen_consensus, args=(xun, chr_id, ll_c, starts_seg, ends_seg, tem_seq_post, del_SV_per_segment, ins_SV_per_segment, del_snv_per_segment, ins_snv_per_segment, snp_per_segment, pai_pro_tem_, args, condition_dist_sv_del, len_SV_del, condition_dist_sv_ins, len_SV_ins, ins_selection,base_list,substitution_matrix,mis_selection,times,tmp_dir), callback=lambda _: monitor_memory(90, max_mem_usage, max_mem_usage_gb, tmp_dir), error_callback=error_handler)
+    #     results.append((xun, result))
+
+    # pool.close()
+    # pool.join()
+
+
+    # print(f"Max memory usage during the program run was: {max_mem_usage}% ({max_mem_usage_gb} GB)")
+
+    # #! 并行运算
     # 计算每个进程的复杂度
     complexities = [del_SV + ins_SV + length for del_SV, ins_SV, length in zip(del_SV_per_segment, ins_SV_per_segment, unblock_vec_lengths)]
-    
+
     # 创建一个包含进程索引和复杂度的列表
     indexed_complexities = list(enumerate(complexities))
 
-    # 根据复杂度对进程进行排序
+    # 根据复杂度排序任务
     sorted_complexities = sorted(indexed_complexities, key=lambda x: x[1], reverse=True)
-    #number of kernel
-    pool = Pool(args.cores)
-    #xun_list=list(range(number_seg))
-    # 创建一个包含进程索引的列表，按照复杂度从大到小排序
+
+    # 按复杂度高低生成任务列表
     xun_list = [index for index, complexity in sorted_complexities]
-    print('Optimal order of running due to computing complexity：'+str(xun_list))
-    #xun_list = list(range(number_seg))
-    #args.cores = 5  # set the number of processes equal to the number of cores
+    print('Optimal order of running due to computing complexity:', xun_list)
 
-    pool = Pool(args.cores)
-    results = []
+    # 记录程序开始时间
+    start_time2 = time.time()
 
-    for xun in xun_list:
-        result = pool.apply_async(gen_consensus, args=(xun, chr_id, ll_c, starts_seg, ends_seg, tem_seq_post, del_SV_per_segment, ins_SV_per_segment, del_snv_per_segment, ins_snv_per_segment, snp_per_segment, pai_pro_tem_, args, condition_dist_sv_del, len_SV_del, condition_dist_sv_ins, len_SV_ins, ins_selection,base_list,substitution_matrix,mis_selection,times,tmp_dir), callback=lambda _: monitor_memory(90, max_mem_usage, max_mem_usage_gb, tmp_dir), error_callback=error_handler)
-        results.append((xun, result))
+    # 使用 ProcessPoolExecutor 动态分配任务
+    results = {}  # 用于存储结果，键为 xun，值为任务返回的结果
+    with ProcessPoolExecutor(max_workers=4) as executor:
+        futures = {
+            executor.submit(
+                gen_consensus,
+                xun, starts_seg, ends_seg, tem_seq_post,
+                del_SV_per_segment, ins_SV_per_segment, del_snv_per_segment,
+                ins_snv_per_segment, snp_per_segment, pai_pro_tem_, args,
+                condition_dist_sv_del, len_SV_del, condition_dist_sv_ins,
+                len_SV_ins, ins_selection, base_list, substitution_matrix,
+                mis_selection, times, tmp_dir
+            ): xun for xun in range(len(starts_seg))
+        }
 
-    pool.close()
-    pool.join()
-
-
-    print(f"Max memory usage during the program run was: {max_mem_usage}% ({max_mem_usage_gb} GB)")
+        # # 动态处理任务结果
+        # for future in as_completed(futures):
+        #     xun = futures[future]
+        #     try:
+        #         # 修改返回值解包方式
+        #         unified_table_seg, ins_dic_sv_seg, tem_seq_post_seg = future.result()
+        #         results[xun] = (unified_table_seg, ins_dic_sv_seg, tem_seq_post_seg)
+        #         print(f"Task {xun} completed successfully.")
+        #     except Exception as e:
+        #         print(f"Task {xun} failed with exception: {e}")
+        # 动态处理任务结果
+        for future in as_completed(futures):
+            xun = futures[future]
+            try:
+                # 修改返回值解包方式
+                unified_table_seg, ins_dic_sv_seg, tem_seq_post_seg = future.result()
+                if unified_table_seg is None or unified_table_seg.size == 0:
+                    print(f"Task {xun} returned empty or None unified_table_seg.")
+                results[xun] = (unified_table_seg, ins_dic_sv_seg, tem_seq_post_seg)
+                print(f"Task {xun} completed successfully.")
+            except Exception as e:
+                print(f"Task {xun} failed with exception: {e}")
+    #! end
 
     end_time2 = time.time()
     # process_end_time2 = time.process_time()
@@ -1673,72 +2423,129 @@ def main():
 
     #process_time3 = time.process_time()
     start_time3 = time.time()
-    
-    import gc
+    # 手动触发垃圾回收，清理不必要的中间变量
     gc.collect()
 
 
-    # 获取结果并按照 xun 的值进行排序
-    results = sorted([(xun, result.get()) for xun, result in results], key=lambda x: x[0])
+    # # 获取结果并按照 xun 的值进行排序
+    # results = sorted([(xun, result.get()) for xun, result in results], key=lambda x: x[0])
 
-    # 提取结果
-    SV_table_segs = [result[0] for xun, result in results]
-    VCF_table_segs = [result[1] for xun, result in results]
-    unblock_region_segs = [result[2] for xun, result in results]
-    Ins_dic_sv_segs = [result[3] for xun, result in results]
-    tem_seq_post_segs = [result[4] for xun, result in results]
+    # # 提取结果
+    # SV_table_segs = [result[0] for xun, result in results]
+    # VCF_table_segs = [result[1] for xun, result in results]
+    # unblock_region_segs = [result[2] for xun, result in results]
+    # Ins_dic_sv_segs = [result[3] for xun, result in results]
+    # tem_seq_post_segs = [result[4] for xun, result in results]
 
 
-    # 优化拼接数据框的代码
-    SV_table_combined = pd.concat(SV_table_segs, ignore_index=True)
-    SV_table_merged = pd.concat([SV_table, SV_table_combined], ignore_index=True)
-    VCF_table_combined = pd.concat(VCF_table_segs, ignore_index=True)
-    VCF_table_merged = pd.concat([VCF_table, VCF_table_combined], ignore_index=True)
+    # # 优化拼接数据框的代码
+    # SV_table_combined = pd.concat(SV_table_segs, ignore_index=True)
+    # SV_table_merged = pd.concat([SV_table, SV_table_combined], ignore_index=True)
+    # VCF_table_combined = pd.concat(VCF_table_segs, ignore_index=True)
+    # VCF_table_merged = pd.concat([VCF_table, VCF_table_combined], ignore_index=True)
+
+    # end_time3 = time.time()
+    # # process_end_time3 = time.process_time()
+    # start_time4 = time.time()
+    # # Combine all elements in unblock_region_segs
+    # # unblock_region = list(set().union(*unblock_region_segs))
+    # # 初始化一个空字典来存储合并的结果
+    # Ins_dic_sv_combined = Ins_dic_sv
+    # for seg in Ins_dic_sv_segs:
+    #     Ins_dic_sv_combined.update(seg)
+        
+    # #print('ins number'+str(len(Ins_dic_sv_combined)))
+    # tem_seq_post_update = []
+
+    # for seg in tem_seq_post_segs:
+    #     tem_seq_post_update.extend(seg)
+
+    # 按照 xun 的顺序提取结果
+    sorted_results = [results[xun] for xun in sorted(results)]  # 确保结果按 xun 顺序排列
+
+    # 解构子任务返回的结果
+    # SV_table_segs = [data[0] for data in sorted_results]  # 每个进程的 SV 表格
+    # VCF_table_segs = [data[1] for data in sorted_results]  # 每个进程的 VCF 表格
+    unified_table_segs = [data[0] for data in sorted_results]  # 每个进程的 Unified_table_seg（numpy 数组）
+    Ins_dic_sv_segs = [data[1] for data in sorted_results]  # 插入字典
+    tem_seq_post_segs = [data[2] for data in sorted_results]  # 处理后的序列
 
     end_time3 = time.time()
-    # process_end_time3 = time.process_time()
+    #process_end_time3 = time.process_time()
     start_time4 = time.time()
-    # Combine all elements in unblock_region_segs
-    # unblock_region = list(set().union(*unblock_region_segs))
-    # 初始化一个空字典来存储合并的结果
-    Ins_dic_sv_combined = Ins_dic_sv
-    for seg in Ins_dic_sv_segs:
-        Ins_dic_sv_combined.update(seg)
-        
-    #print('ins number'+str(len(Ins_dic_sv_combined)))
-    tem_seq_post_update = []
 
-    for seg in tem_seq_post_segs:
-        tem_seq_post_update.extend(seg)
+    mask_uni = np.all((Unified_table == None) | (Unified_table == ''), axis=1)
+    Unified_table = Unified_table[~mask_uni]
 
-    #!
-    #! check the simulated count
-    # Count the number of deletions in SV_table_merged
-    deletion_count = SV_table_merged[SV_table_merged['SV_type'] == 'Deletion'].shape[0]
-    insertion_count = SV_table_merged[SV_table_merged['SV_type'] == 'Insertion'].shape[0]
-    print('Simulated deletions:'+str(deletion_count))
-    print('Simulated insertions:'+str(insertion_count))
-    end_time4 = time.time()
+    # 调试输出
+    print("Number of segments:", len(unified_table_segs))
+    for i, arr in enumerate(unified_table_segs):
+        print(f"Segment {i} shape: {arr.shape}")
 
-    start_time5 = time.time()
+    # 合并所有子任务的结果
+    # 1. 合并 numpy 数组
+    if unified_table_segs:
+        # 过滤掉空数组
+        unified_table_segs = [arr for arr in unified_table_segs if arr.size > 0]
+        if unified_table_segs:
+            # 检查列数是否一致
+            cols = Unified_table.shape[1]
+            for arr in unified_table_segs:
+                if arr.shape[1] != cols:
+                    raise ValueError(f"Column mismatch: Expected {cols} columns, but got {arr.shape[1]} columns.")
+            # 将原始的 Unified_table 和所有子任务的 unified_table_segs 拼接
+            unified_table_combined = np.vstack([Unified_table] + unified_table_segs)
+            print(f"Combined table shape: {unified_table_combined.shape}")
+        else:
+            unified_table_combined = Unified_table
+            print("All segments are empty. Using original Unified_table.")
+    else:
+        unified_table_combined = Unified_table
+        print("No new segments to combine. Using original Unified_table.")
 
-    tem_seq_post_up = tem_seq_post_update.copy()
-    for idx in sorted(Ins_dic_sv_combined, reverse=True):
-        tem_seq_post_up.insert(idx+1, Ins_dic_sv_combined[idx])
+    # 合并字典
+    # 使用字典解包操作快速合并多个字典
+    Ins_dic_sv_combined = {**Ins_dic_sv, **{k: v for seg in Ins_dic_sv_segs for k, v in seg.items()}}
 
-    tem_seq_post_up_string = ''.join(tem_seq_post_up)
+    # 拼接 DNA 序列
+    # 使用 itertools.chain 快速拼接多个列表
+    from itertools import chain
+    tem_seq_post_update = list(chain.from_iterable(tem_seq_post_segs))
 
-    tem_seq_post_up_string= tem_seq_post_up_string.replace('-','')
+    # 找出所有元素都是 None 或空字符串的行
+    mask = np.all((SV_table == None) | (SV_table == ''), axis=1)
 
-    updated_con.append(copy.deepcopy(tem_seq_post_up_string))
+    # 删除这些行
+    SV_table = SV_table[~mask]
+
+    # 现在你可以将 SV_table 转换为 DataFrame
+    # SV_table_merged = pd.DataFrame(SV_table, columns=['Index','Index_con','SV_type','Original_start',\
+                                        # 'Original_end','Len_SV','New_start','New_end','New_len_SV','Balanced Trans Flag','relative start1','relative end1','relative start2','relative end2'])
     
-    print('Length of the simulated sequence: '+str(len(tem_seq_post_up_string)))
+    # 拆分 Unified_table
+    # 提取前 8 列作为 SV_sub
+    SV_sub = unified_table_combined[:, :8]  # 前 8 列
 
-    # 删除第一列
-    SV_table_merged = SV_table_merged.iloc[:, 1:]
+    # 合并 SV_table 和 SV_sub
+    # 假设 SV_table 已经初始化并填充了数据
+    SV_table_merged = np.vstack((SV_table, SV_sub))  # 垂直合并
+
+    # 将 SV_table 转换为 DataFrame
+    SV_table_merged = pd.DataFrame(SV_table_merged, columns=['SV_type', 'Original_start', 'Original_end', 
+                                                 'Len_SV', 'New_start', 'New_end', 
+                                                 'New_len_SV', 'Balanced Trans Flag'])
+    
+    # 添加 'Index_con' 列并填充 ll_c 的值
+    SV_table_merged['Index_con'] = ll_c  # ll_c 是你定义的变量
+
+    # 添加 'relative start1', 'relative end1', 'relative start2', 'relative end2' 列并填充为 0
+    SV_table_merged['relative start1'] = 0
+    SV_table_merged['relative end1'] = 0
+    SV_table_merged['relative start2'] = 0
+    SV_table_merged['relative end2'] = 0
 
     # 定义 SV 类型的排序
-    sv_type_order = ['Translocation', 'Inversion', 'Duplication', 'Deletion', 'Insertion', 'Micro_Del', 'Micro_Ins', 'Substitution']
+    sv_type_order = ['Translocation', 'Inversion', 'Duplication', 'Deletion', 'Insertion', 'Small_Del', 'Small_Ins', 'Substitution']
 
     # 将 'SV type' 转换为有序的分类变量
     SV_table_merged['SV_type'] = pd.Categorical(SV_table_merged['SV_type'], categories=sv_type_order, ordered=True)
@@ -1753,57 +2560,183 @@ def main():
     SV_table_merged.reset_index(inplace=True)
     SV_table_merged.rename(columns={'index': 'Index'}, inplace=True)
 
-    # 按照 'pos' 列排序
-    VCF_table_merged.sort_values(by='POS', inplace=True)
+    # 调整列顺序为指定的顺序
+    final_columns = ['Index', 'Index_con', 'SV_type', 'Original_start', 'Original_end', 
+                    'Len_SV', 'New_start', 'New_end', 'New_len_SV', 'Balanced Trans Flag', 
+                    'relative start1', 'relative end1', 'relative start2', 'relative end2']
+    SV_table_merged = SV_table_merged[final_columns]
 
-    # 重置索引并将旧索引添加为 'Index' 列
-    VCF_table_merged.reset_index(inplace=True, drop=True)
+    # 提取 SV_type 和 Len_SV 列
+    sv_types = unified_table_combined[:, 0]  # SV_type 列
+    sv_lens = unified_table_combined[:, 3]   # Len_SV 列
 
-    # 更新 'ID' 列
-    VCF_table_merged['ID'] = 'rs' + VCF_table_merged.index.astype(str)
+    # 生成 INFO 列
+    info_column = generate_info_column(sv_types, sv_lens)
+    # 提取 VCF_sub
+    # VCF_sub 需要包含 'POS' 和 'INFO' 列，并根据规则生成
+    VCF_sub = np.empty((unified_table_combined.shape[0], 4), dtype=object)  # 初始化 VCF_sub
+    VCF_sub[:, 0] = unified_table_combined[:, 1]  # 'POS' 列 = 'Original_start'
+    VCF_sub[:, 1] = unified_table_combined[:, 8]  # 'REF' 列
+    VCF_sub[:, 2] = unified_table_combined[:, 9]  # 'ALT' 列
+    VCF_sub[:, 3] = info_column  # 'INFO' 列
+    # # 根据 SV_type 和 Len_SV 生成 INFO 列
+    # for i in range(Unified_table.shape[0]):
+    #     sv_type = Unified_table[i, 0]  # SV_type
+    #     sv_len = Unified_table[i, 3]   # Len_SV
+    #     VCF_sub[i, 3] = get_info_from_sv_type(sv_type, sv_len)  # INFO 列
+
+
+    # 对 VCF_table 重复相同的步骤
+    mask = np.all((VCF_table == None) | (VCF_table == ''), axis=1)
+    VCF_table = VCF_table[~mask]
+
+    # 合并 VCF_table 和 VCF_sub
+    # 假设 VCF_table 已经初始化并填充了数据
+    VCF_table_merged = np.vstack((VCF_table, VCF_sub))  # 垂直合并
+
+
+    # VCF_table_merged = pd.DataFrame(VCF_table, columns=['CHROM', 'POS', 'ID', 'REF', 'ALT', 'QUAL', 'FILTER', 'INFO','FORMAT','SAMPLE_ID'])
+    # 将 VCF_table 转换为 DataFrame
+    VCF_table_merged = pd.DataFrame(VCF_table_merged, columns=['POS', 'REF', 'ALT', 'INFO'])
+
+    # 添加 'CHROM' 列并填充为 str(chr_id) 的值
+    VCF_table_merged['CHROM'] = str(chr_id)  # chr_id 是你定义的变量
+
+    # 将 'POS' 列转换为整数类型
+    VCF_table_merged['POS'] = VCF_table_merged['POS'].astype(int)
+
+    # 按照 POS 升序排序
+    VCF_table_merged = VCF_table_merged.sort_values(by='POS')
+
+    # 添加 'ID' 列并填充从 0 开始的编号
+    VCF_table_merged['ID'] = range(len(VCF_table_merged))
+
+    # 添加 'QUAL', 'FILTER', 'FORMAT', 'SAMPLE_ID' 列并填充相应的值
+    VCF_table_merged['QUAL'] = '.'
+    VCF_table_merged['FILTER'] = 'PASS'
+    VCF_table_merged['FORMAT'] = 'GT'
+    VCF_table_merged['SAMPLE_ID'] = '1/1'
+
+    # 重新排列列顺序（如果需要）
+    VCF_table_merged = VCF_table_merged[['CHROM', 'POS', 'ID', 'REF', 'ALT', 'QUAL', 'FILTER', 'INFO', 'FORMAT', 'SAMPLE_ID']]
+    # 后续代码保持不变
+    print("All tasks completed and results integrated successfully.")
+    
+
+    #!
+    #! check the simulated count
+    # Count the number of deletions in SV_table_merged
+    # 按照顺序计数每种变异类型
+    # deletion_count = SV_table_merged[SV_table_merged['SV_type'] == 'Deletion'].shape[0]
+    # insertion_count = SV_table_merged[SV_table_merged['SV_type'] == 'Insertion'].shape[0]
+    # print('Simulated deletions:'+str(deletion_count))
+    # print('Simulated insertions:'+str(insertion_count))
+
+    counts = {}
+    total = 0
+    
+    for sv_type in sv_type_order:
+        count = SV_table_merged[SV_table_merged['SV_type'] == sv_type].shape[0]
+        counts[sv_type] = count
+        total += count
+        print(f'Simulated {sv_type.lower()}s:' + str(count))
+
+    # 输出总数
+    print('Total simulated Variations:' + str(total))
+
+    #! 0409 图像
+    # 根据输入类型确定empirical_data的格式
+    if args.indel_input_bed:
+        # 单样本输入情况
+        del_data = del_empirical  # 单样本DEL计数列表
+        ins_data = ins_empirical  # 单样本INS计数列表
+    elif args.file_list:
+        # 多样本输入情况
+        del_data = {'mean': means_DEL, 'std': std_devs_DEL}  # DEL均值和标准差
+        ins_data = {'mean': means_INS, 'std': std_devs_INS}  # INS均值和标准差
+    else:
+        # 默认情况 - 这里保持和您原始逻辑一致，但建议统一处理
+        del_data = del_empirical  # DEL均值和标准差
+        ins_data = ins_empirical  # 单样本INS计数列表
+
+    # 公共参数
+    common_params = {
+        'chr_id': chr_id,
+        'chr_length': chr_length,
+        'len_bins': args.len_bins,
+        'n_bed_path': n_bed_path if not args.notblockN else None,
+        'output_dir': args.save
+    }
+
+    # 绘制Deletion分布图
+    plot_sv_distribution(mode, args,
+        SV_table_merged,
+        'Deletion',
+        empirical_data=del_data,
+        **common_params
+    )
+
+    # 绘制Insertion分布图
+    plot_sv_distribution(mode, args,
+        SV_table_merged,
+        'Insertion',
+        empirical_data=ins_data,
+        **common_params
+    )
+
+
+    
+        
+   
+        
+    end_time4 = time.time()
+
+    start_time5 = time.time()
+
+    tem_seq_post_up = tem_seq_post_update.copy()
+    # for idx in sorted(Ins_dic_sv_combined, reverse=True):
+    #     tem_seq_post_up.insert(idx+1, Ins_dic_sv_combined[idx])
+    #! 插入并行运算外产生的inserted segments
+    for idx in sorted(Ins_dic_sv, reverse=True):
+        tem_seq_post_up.insert(idx, Ins_dic_sv[idx])
+
+    tem_seq_post_up_string = ''.join(tem_seq_post_up)
+
+    tem_seq_post_up_string= tem_seq_post_up_string.replace('-','')
+
+    updated_con.append(copy.deepcopy(tem_seq_post_up_string))
+    
+    print('Length of the simulated sequence: '+str(len(tem_seq_post_up_string)))
+
+    # # 删除第一列
+    # SV_table_merged = SV_table_merged.iloc[:, 1:]
+
+    # # 定义 SV 类型的排序
+    # sv_type_order = ['Translocation', 'Inversion', 'Duplication', 'Deletion', 'Insertion', 'Small_Del', 'Small_Ins', 'Substitution']
+
+    # # 将 'SV type' 转换为有序的分类变量
+    # SV_table_merged['SV_type'] = pd.Categorical(SV_table_merged['SV_type'], categories=sv_type_order, ordered=True)
+
+    # # 按照 'SV type' 和 'Original_start' 排序
+    # SV_table_merged.sort_values(by=['SV_type', 'Original_start'], inplace=True)
+
+    # # 重置索引，并丢弃原来的索引
+    # SV_table_merged.reset_index(drop=True, inplace=True)
+
+    # # 再次重置索引，将新的索引添加为一个列，然后将这个新的列的名字改为 'Index'
+    # SV_table_merged.reset_index(inplace=True)
+    # SV_table_merged.rename(columns={'index': 'Index'}, inplace=True)
+
+    # # 按照 'pos' 列排序
+    # VCF_table_merged.sort_values(by='POS', inplace=True)
+
+    # # 重置索引并将旧索引添加为 'Index' 列
+    # VCF_table_merged.reset_index(inplace=True, drop=True)
+
+    # # 更新 'ID' 列
+    # VCF_table_merged['ID'] = 'rs' + VCF_table_merged.index.astype(str)
 
     tem_ins_dic = Ins_dic_sv_combined
-
-    # Save the dictionary as a .npy file
-
-    def write_template_fasta_con(args, seqname, consensus_):
-        # Prepare the new sequence
-        sequences = [consensus_]
-        new_sequences = []
-        for sequence in sequences:
-            record = SeqRecord(Seq(re.sub('[^GATCN-]', "", str(sequence).upper())), id=seqname, name=seqname, description="<custom description>")
-            new_sequences.append(record)
-
-        # Write the new sequence to a file
-        with open(args.save + 'BV_' + str(args.rep) + "_seq_" + str(seqname) +".fasta", "w") as output_handle:
-            SeqIO.write(new_sequences, output_handle, "fasta")
-    
-    def write_vcf(args, df, seqname, start_base, end_base):
-        # Get the current date
-        current_date = datetime.now().strftime('%Y%m%d')
-        # Add the additional columns to the DataFrame
-        df['FORMAT'] = 'GT'
-        df['SAMPLE_ID'] = '1/1'
-        # Write the DataFrame to a VCF file
-        with open(args.save +'BV_' + str(args.rep) +  "_seq_" + str(seqname) +".vcf", 'w') as f:
-            f.write('##fileformat=VCFv4.2\n')
-            f.write('##fileDate=' + current_date + '\n')
-            f.write('##source=Wave.py\n')
-            f.write('##reference=' + args.ref + ':' + str(start_base) + '-' + str(end_base) + '\n')
-            f.write('##contig=<ID='+str(seqname)+',length=' + str(end_base - start_base + 1) + '>\n')
-            f.write('##INFO=<ID=SVTYPE,Number=1,Type=String,Description="Type of structural variant">\n')
-            f.write('##INFO=<ID=SVLEN,Number=1,Type=Integer,Description="Length of the variant">\n')
-            f.write('##INFO=<ID=CSV_TYPE,Number=1,Type=String,Description="Type of CSV">\n')
-            f.write('##INFO=<ID=CSV_INDEX,Number=1,Type=Integer,Description="Index of CSV">\n')
-            f.write('##INFO=<ID=SUB,Number=1,Type=String,Description="Substitution">\n')
-            f.write('##INFO=<ID=microINS,Number=1,Type=String,Description="Micro insertion">\n')
-            f.write('##INFO=<ID=LEN,Number=1,Type=Integer,Description="Length of the variant">\n')
-            f.write('##INFO=<ID=microDEL,Number=1,Type=String,Description="Micro deletion">\n')
-            f.write('##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">\n')
-            f.write('#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tSAMPLE_ID\n')
-            df.to_csv(f, sep='\t', index=False, header=False)
-
-
 
     write_template_fasta_con(args, seqname, updated_con[0])
     write_vcf(args, VCF_table_merged, seqname, start_base, end_base)
@@ -1811,185 +2744,19 @@ def main():
     #! final table
     if args.write:
         print('finalize table')
-
-        #!
-        tem_SV_table_merged = SV_table_merged[SV_table_merged.iloc[:,1]==ll_c]
-        #original start: start of A
-        list_start1 = list(tem_SV_table_merged.iloc[:,3])
-        #start of B (dulplication or balanced trans)
-        list_start2 = list(tem_SV_table_merged.iloc[:,6])
-        whole_start_abs = list_start1+list_start2
-        #order SV from left
-        #set:merge repeated sites (e.g. 5 mismatch 5.5 ins)
-        #! 筛选出大于-1的
-        whole_start_abs = [item for item in whole_start_abs if item > 0]
-        whole_start_abs_set = sorted(list(set(whole_start_abs)))
-        present_len = 0
-        last_bone = 0
-        #inserted term
-        
-        for ll_var_index in range(len(whole_start_abs_set)):
-            
-            #! time 找到对应的行
-            tem_SV_table_merged2 = tem_SV_table_merged[(tem_SV_table_merged['Original_start']==whole_start_abs_set[ll_var_index]) |\
-                                            (tem_SV_table_merged['New_start']==whole_start_abs_set[ll_var_index])]
-
-            for xun_nei_row in range(len(tem_SV_table_merged2)):
-                tem_row = tem_SV_table_merged2.iloc[xun_nei_row,:]
-                stand_line = int(tem_row[0])
-                #A
-                bone1s = tem_row[3]
-                bone1e = tem_row[4]
-                #B
-                bone2s = tem_row[6]
-                bone2e = tem_row[7]
-                if whole_start_abs_set[ll_var_index] in list_start1:
-                #ls_satrt1_index_df = int(list_start1.index(whole_start_abs_set[ll_var_index]))
-                #stand_line = int(SV_table_merged.iloc[ls_satrt1_index_df,0])
-                #tem_row = SV_table_merged.iloc[ls_satrt1_index_df,:]
-                    #class of SV
-                    if tem_row[2] in ['Substitution','Micro_Ins','Micro_Del','Deletion','Insertion','Inversion']:
-                        if tem_row[2] in ['Deletion','Micro_Del']:
-                            inster_number_bone = bone1s-last_bone-1
-                            #index for consensus before start of current variation
-                            present_len = present_len + inster_number_bone
-                            #update last_bone as end of current variation
-                            last_bone = bone1e
-                            #deleted base has no new axis on consensus
-                            SV_table_merged.iloc[stand_line,10] = -1
-                            SV_table_merged.iloc[stand_line,11] = -1
-                            SV_table_merged.iloc[stand_line,12] = -1
-                            SV_table_merged.iloc[stand_line,13] = -1
-                        elif tem_row[2] in ['Substitution']:
-                            inster_number_bone = bone1s-last_bone
-                            #one to one map
-                            present_len = present_len + inster_number_bone
-                            #bone1s=bone1e=5
-                            last_bone = bone1e
-                            SV_table_merged.iloc[stand_line,10] = present_len
-                            SV_table_merged.iloc[stand_line,11] = present_len
-                            SV_table_merged.iloc[stand_line,12] = -1
-                            SV_table_merged.iloc[stand_line,13] = -1
-                        elif tem_row[2] in ['Micro_Ins','Insertion']:
-                            inster_number_bone = bone1s-last_bone
-                            Ins_len_present = len(tem_ins_dic[bone1s])
-                            #inserted position on consensus: one pos:+1, inserted after current base
-                            SV_table_merged.iloc[stand_line,10] = present_len + inster_number_bone+1
-                            SV_table_merged.iloc[stand_line,12] = -1
-                            #on consensus: end of previous SV+ number of normal base+ inserted length
-                            present_len = present_len + inster_number_bone+Ins_len_present
-                            #end of current SV
-                            last_bone = bone1e
-                            SV_table_merged.iloc[stand_line,11] = present_len
-                            SV_table_merged.iloc[stand_line,13] = -1
-                        else:## this is the inversion
-                            inster_number_bone = bone1s-last_bone
-                            SV_table_merged.iloc[stand_line,10] = present_len + inster_number_bone
-                            SV_table_merged.iloc[stand_line,12] = -1
-                            #no loss from last_bone to bone1e
-                            #????
-                            #present_len = present_len + bone1e - last_bone
-                            present_len = present_len + bone1e - last_bone
-                            SV_table_merged.iloc[stand_line,11] = present_len
-                            SV_table_merged.iloc[stand_line,13] = -1 
-                            last_bone = bone1e
-                            
-                    elif tem_row[2] in ['Duplication']:
-                            #copy A to B (A no change)
-                            #5-0=5
-                            inster_number_bone = bone1s-last_bone
-                            #Ins_len_present = len(tem_ins_dic[bone2s])
-                            #length of the copied: A
-                            #=6
-                            tem_plate_len = SV_table_merged.iloc[stand_line,5]
-                            #0+5=5
-                            SV_table_merged.iloc[stand_line,10] = present_len + inster_number_bone
-                            #SV_table_merged.iloc[stand_line,12] = present_len + inster_number_bone+1
-                            present_len = present_len + inster_number_bone + tem_plate_len-1
-                            #0+5+6-1=10
-                            SV_table_merged.iloc[stand_line,11] = present_len 
-                            #SV_table_merged.iloc[stand_line,13] = present_len
-                            last_bone = bone1e
-                            
-                    elif tem_row[2] in ['Translocation']:
-                        #balanced translocation
-                        #A:5-10, B:12-18
-                        if tem_row[9] == 1:
-                            #ins B to A's pos:5-0-1=4
-                            inster_number_bone = bone1s-last_bone-1
-                            #0+4+1=5,the start of copied base is 5
-                            SV_table_merged.iloc[stand_line,10] = present_len + inster_number_bone+1
-                            #length of B: 18-12+1=7
-                            Ins_len_present = len(tem_ins_dic[bone1s-1])
-                            #0+4+7=11
-                            #end of A:current SV end=11
-                            present_len = present_len + inster_number_bone + Ins_len_present
-                            SV_table_merged.iloc[stand_line,11] = present_len
-                            last_bone = bone1e
-                        #!unbalanced trans:
-                        else:
-                            inster_number_bone = bone1s-last_bone-1
-                            #index for consensus before start of current variation
-                            present_len = present_len + inster_number_bone
-                            
-                            #deleted base has no new axis on consensus
-                            SV_table_merged.iloc[stand_line,10] = present_len+1
-                            SV_table_merged.iloc[stand_line,11] = present_len+1
-                            
-                            #update last_bone as end of current variation
-                            last_bone = bone1e
-            
-            
-                else:### in the list2: pos of B (only duplication and trans)
-                    
-                    if tem_row[2] in ['Duplication']:
-                        #if SV_table_merged.iloc[stand_line,10]==0:
-                            #bone2s:B_start
-                            #same as ins
-                            inster_number_bone = bone2s-last_bone
-                            #SV_table_merged.iloc[stand_line,10] = present_len + inster_number_bone+1
-                            #SV_table_merged.iloc[stand_line,12] = present_len + inster_number_bone+1
-                            SV_table_merged.iloc[stand_line,12] = present_len+inster_number_bone+1
-                            Ins_len_present = len(tem_ins_dic[bone2s])
-                            present_len = present_len + inster_number_bone+Ins_len_present
-                            
-                            SV_table_merged.iloc[stand_line,13] = present_len
-                            last_bone = bone2e
-                    elif tem_row[2] in ['Translocation']:
-                        #balanced: similar to A
-                        if  tem_row[9] == 1:
-                            inster_number_bone = bone2s-last_bone-1
-                            SV_table_merged.iloc[stand_line,12] = present_len + inster_number_bone+1
-                            #inserted A's length
-                            Ins_len_present = len(tem_ins_dic[bone2s-1])
-                            present_len = present_len + inster_number_bone + Ins_len_present
-                            SV_table_merged.iloc[stand_line,13] = present_len
-                            last_bone = bone2e
-                        #unbalanced
-                        else:
-                            inster_number_bone = bone2s-last_bone-1
-                            inster_number_bone = bone2s-last_bone
-                            #A is a del
-                            SV_table_merged.iloc[stand_line,10] = -1
-                            SV_table_merged.iloc[stand_line,12] = present_len + inster_number_bone+1
-                            #length of A
-                            #Ins_len_present = len(tem_ins_dic[bone2s-1])
-                            #Ins_dic_sv_seg[ins_trans_loc] = copy.deepcopy(''.join(tem_seq_post[r_s:(r_s+l_s)]))
-                            #similar to insertion
-                            Ins_len_present = len(tem_ins_dic[bone2s])
-                            present_len = present_len + inster_number_bone + Ins_len_present
-                            #A is a del
-                            SV_table_merged.iloc[stand_line,11] = -1
-                            SV_table_merged.iloc[stand_line,13] = present_len
-                            last_bone = bone2e
-
-     # Call the functions
-    
-        SV_table_merged.to_csv(args.save + 'BV_' + str(args.rep) + '_seq_' + str(seqname) + '_SVtable_full.csv', header=True, index=False)
+        SV_table_merged = SV_write_relative(SV_table_merged,ll_c,tem_ins_dic)
+        output_path = args.save +'BV_' + str(args.rep) + '_seq_' + str(seqname) + '_SVtable_full.csv'
+        SV_table_merged.to_csv(output_path, header=True, index=False)
+        print(f"Saved full SV table to {output_path}")
     else:
-        SV_table_merged.to_csv(args.save + 'BV_' + str(args.rep) + '_seq_' + str(seqname) + '_SVtable.csv', header=True, index=False)
+        output_path = args.save +'BV_' + str(args.rep) + '_seq' + str(seqname) + '_SVtable.csv'
+        SV_table_merged.to_csv(output_path, header=True, index=False)
+        print(f"Saved SV table to {output_path}")
+        
         # Save the dictionary as a .npy file
-        np.save(args.save+'BV_'+ str(args.rep) + '_seq_' + str(seqname) + '_tem_ins_dic.npy', tem_ins_dic)
+        dic_path = args.save+'BV_'+str(args.rep) + '_seq_' + str(seqname) + '_tem_ins_dic.npy'
+        np.save(dic_path, tem_ins_dic)
+        print(f"Saved tem_ins_dic to {dic_path}")
     
     end_time5 = time.time()
     # Use the function in your code

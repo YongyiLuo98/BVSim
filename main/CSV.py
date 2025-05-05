@@ -33,13 +33,111 @@ import math
 start_time1 = time.time()
 print('Complex Structure Variation Mode')
 
+# def check_start_end(row):
+#     if row['start'] >= row['end']:
+#         print('Warning: The "start" value of the .bed file is greater than or equal to the "end" value.')
+#         return False
+#     return True
+
+
+def write_template_fasta_con(args, seqname, consensus_):
+    # 生成输出文件路径
+    output_path = args.save + 'BV_' + str(args.rep) + "_seq_"+str(seqname) +".fasta"
+    # Prepare the new sequence
+    sequences = [consensus_]
+    new_sequences = []
+    for sequence in sequences:
+        record = SeqRecord(Seq(re.sub('[^GATCN-]', "", str(sequence).upper())), id=seqname, name=seqname, description="<custom description>")
+        new_sequences.append(record)
+
+    # Write the new sequence to a file
+    # with open(args.save + 'BV_' + str(args.rep) + "_seq_"+str(seqname) +".fasta", "w") as output_handle:
+    #     SeqIO.write(new_sequences, output_handle, "fasta")
+    # Write the new sequence to a file
+    with open(output_path, "w") as output_handle:
+        SeqIO.write(new_sequences, output_handle, "fasta")
+    
+    # 打印输出文件路径
+    print(f"Saved consensus sequence to {output_path}")
+
+def write_vcf(args, df, seqname, start_base, end_base):
+    # 生成输出文件路径
+    output_path = args.save + 'BV_' + str(args.rep) + '_seq_' + str(seqname) + ".vcf"
+    
+    # Get the current date
+    current_date = datetime.now().strftime('%Y%m%d')
+    
+    # Write the DataFrame to a VCF file
+    with open(output_path, 'w') as f:
+    # with open(args.save + 'BV_' + str(args.rep) + '_seq_' + str(seqname) + ".vcf", 'w') as f:
+        # VCF header
+        f.write('##fileformat=VCFv4.3\n')  # 更新为 VCF 4.3
+        f.write('##fileDate=' + current_date + '\n')
+        f.write('##source=CSV.py\n')
+        f.write('##reference=' + args.ref + ':' + str(start_base) + '-' + str(end_base) + '\n')
+        f.write('##contig=<ID=' + str(seqname) + ',length=' + str(end_base - start_base + 1) + '>\n')
+        
+        # INFO fields
+        f.write('##INFO=<ID=SVTYPE,Number=1,Type=String,Description="Type of structural variant">\n')
+        f.write('##INFO=<ID=SVLEN,Number=1,Type=Integer,Description="Length of the variant">\n')
+        f.write('##INFO=<ID=CSV_TYPE,Number=1,Type=String,Description="Type of CSV">\n')
+        f.write('##INFO=<ID=CSV_INDEX,Number=1,Type=Integer,Description="Index of CSV">\n')
+        f.write('##INFO=<ID=ID1,Number=1,Type=String,Description="TanInvDup (Tandem Inverted Dup)">\n')
+        f.write('##INFO=<ID=ID2,Number=1,Type=String,Description="DisInvDup (Dispersed Inverted Dup)">\n')
+        f.write('##INFO=<ID=ID3,Number=1,Type=String,Description="DisDup">\n')
+        f.write('##INFO=<ID=ID4,Number=1,Type=String,Description="DEL + INV">\n')
+        f.write('##INFO=<ID=ID5,Number=1,Type=String,Description="DEL + DisInvDup">\n')
+        f.write('##INFO=<ID=ID6,Number=1,Type=String,Description="DEL + DisDup">\n')
+        f.write('##INFO=<ID=ID7,Number=1,Type=String,Description="TanDup + DEL">\n')
+        f.write('##INFO=<ID=ID8,Number=1,Type=String,Description="TanInvDup + DEL">\n')
+        f.write('##INFO=<ID=ID9,Number=1,Type=String,Description="TanDup + DEL + INV">\n')
+        f.write('##INFO=<ID=ID10,Number=1,Type=String,Description="TanInvDup + DEL + INV">\n')
+        f.write('##INFO=<ID=ID11,Number=1,Type=String,Description="DEL + DEL + INV">\n')
+        f.write('##INFO=<ID=ID12,Number=1,Type=String,Description="DUP + INV">\n')
+        f.write('##INFO=<ID=ID13,Number=1,Type=String,Description="INV + DUP">\n')
+        f.write('##INFO=<ID=ID14,Number=1,Type=String,Description="DUP + INV + DUP">\n')
+        f.write('##INFO=<ID=ID15,Number=1,Type=String,Description="DUP + INV + DEL">\n')
+        f.write('##INFO=<ID=ID16,Number=1,Type=String,Description="DEL + INV + DUP">\n')
+        f.write('##INFO=<ID=ID17,Number=1,Type=String,Description="DUPTRIPDUP + INV">\n')
+        f.write('##INFO=<ID=ID18,Number=1,Type=String,Description="DEL + unbalancedTrans">\n')
+            
+        f.write('##INFO=<ID=SUB,Number=1,Type=String,Description="Substitution">\n')
+        f.write('##INFO=<ID=smallINS,Number=1,Type=String,Description="Small insertion">\n')
+        f.write('##INFO=<ID=LEN,Number=1,Type=Integer,Description="Length of the variant">\n')
+        f.write('##INFO=<ID=smallDEL,Number=1,Type=String,Description="Small deletion">\n')
+        f.write('##INFO=<ID=DEL,Number=1,Type=String,Description="Deletion">\n')
+        f.write('##INFO=<ID=INS,Number=1,Type=String,Description="Insertion">\n')
+        f.write('##INFO=<ID=INV,Number=1,Type=String,Description="Inversion">\n')
+        
+        # FORMAT field
+        f.write('##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">\n')
+        
+        # Column headers
+        f.write('#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tSAMPLE_ID\n')
+        
+        # Write data
+        if df.empty:
+            print("Warning: DataFrame is empty. No data will be written to VCF.")
+        else:
+            df.to_csv(f, sep='\t', index=False, header=False)
+            
+    # 打印输出文件路径
+    print(f"Saved VCF file to {output_path}")
+
 def check_start_end(row):
-    if row['start'] >= row['end']:
-        print('Warning: The "start" value of the .bed file is greater than or equal to the "end" value.')
+    try:
+        start = int(row['start'])
+        end = int(row['end'])
+    except ValueError:
+        print('Error: "start" or "end" value is not an integer.')
+        return False
+    
+    if start >= end:
+        print('Warning: The "start" value is greater than or equal to the "end" value.')
         return False
     return True
 
-# 定义一个函数，该函数接收一行数据，返回该行'start'和'end'区域中的所有点.不包含end
+# Define a function that receives a row of data and returns all points in the 'start' and 'end' regions of the row. End is not included.
 def get_points(row):
     return set(range(row['start'], row['end']))
 
@@ -285,6 +383,9 @@ def tandem_duplication(SV_table, VCF_table,True_dup_number, unblock_region_sv, S
                 circular_count_dup_break = 0
         if not circular_count_dup_break:
             circular_count_dup=0
+            #! Remove the copied region from unblock_region_sv (关键修改点)
+            unblock_region_sv = list(set(unblock_region_sv) - set(range(remain_index2 - tem_copied_base + 1, remain_index2 + 1)))
+            
             if remain_index2 in other_sites:
                 other_sites.remove(remain_index2)
             if remain_index2 in unblock_region_sv:
@@ -416,6 +517,9 @@ def ID1_TanInvDup_process(unblock_region_sv, True_TanInvDup_number, times, real_
         #ratio_re_InvDup:neighbor InvDuplication (right after the copied area)
         if not circular_count_InvDup_break:
             circular_count_InvDup=0
+            #! Remove the copied region from unblock_region_sv (关键修改点)
+            unblock_region_sv = list(set(unblock_region_sv) - set(range(remain_index2 - tem_copied_base + 1, remain_index2 + 1)))
+            
             original_string_dup = copy.deepcopy(real_con1[remain_index2-tem_copied_base+1:remain_index2+1])
             #! original_string_dup_reverse = original_string_dup[::-1]
             original_string_dup_reverse = DNA_complement(original_string_dup[::-1])
@@ -499,6 +603,9 @@ def ID2_DisInvDup_process(unblock_region_sv, True_DisInvDup_number, times, real_
         #ratio_re_InvDup:neighbor InvDuplication (right after the copied area)
         if not circular_count_InvDup_break:
             circular_count_InvDup=0
+            #! Remove the copied region from unblock_region_sv (关键修改点)
+            unblock_region_sv = list(set(unblock_region_sv) - set(range(remain_index2 - tem_copied_base + 1, remain_index2 + 1)))
+            
             original_string_dup = copy.deepcopy(real_con1[remain_index2-tem_copied_base+1:remain_index2+1])
             #! original_string_dup_reverse = original_string_dup[::-1]
             original_string_dup_reverse = DNA_complement(original_string_dup[::-1])
@@ -569,6 +676,9 @@ def ID3_disdup_process(SV_table, VCF_table, unblock_region_sv, SV_loop, VCF_loop
 
         if not circular_count_dup_break:
             circular_count_dup=0
+            #! Remove the copied region from unblock_region_sv (关键修改点)
+            unblock_region_sv = list(set(unblock_region_sv) - set(range(remain_index2 - tem_copied_base + 1, remain_index2 + 1)))
+            
             remain_index22 = sample(other_sites,1)[0]
             
             other_sites.remove(remain_index22)
@@ -696,6 +806,10 @@ def ID5_disinvdupdel_process(SV_table, VCF_table, unblock_region_sv, SV_loop, VC
                 circular_count_DisDup_break = 0
         if not circular_count_DisDup_break:
             circular_count_DisDup = 0
+            
+            #! Remove the copied region from unblock_region_sv (关键修改点)
+            unblock_region_sv = list(set(unblock_region_sv) - set(range(remain_index2 - tem_copied_base + 1, remain_index2 + 1)))
+            
             original_string_dup = copy.deepcopy(real_con1[remain_index2-tem_copied_base+1:remain_index2+1])
             original_string_dup_reverse = DNA_complement(original_string_dup[::-1])
             # sample the deletion site
@@ -781,6 +895,10 @@ def ID6_disdupdel_process(SV_table, VCF_table, unblock_region_sv, SV_loop, VCF_l
                 circular_count_DisDup_break = 0
         if not circular_count_DisDup_break:
             circular_count_DisDup = 0
+            
+            #! Remove the copied region from unblock_region_sv (关键修改点)
+            unblock_region_sv = list(set(unblock_region_sv) - set(range(remain_index2 - tem_copied_base + 1, remain_index2 + 1)))
+            
             original_string_dup = copy.deepcopy(real_con1[remain_index2-tem_copied_base+1:remain_index2+1])
             #original_string_dup_reverse = DNA_complement(original_string_dup[::-1])
             # sample the deletion site
@@ -864,6 +982,10 @@ def ID7_tandupDEL_process(SV_table, VCF_table, unblock_region_sv, SV_loop, VCF_l
                 circular_count_TanDup_break = 0
         if not circular_count_TanDup_break:
             circular_count_TanDup = 0
+            
+            #! Remove the copied region from unblock_region_sv (关键修改点)
+            unblock_region_sv = list(set(unblock_region_sv) - set(range(remain_index2 - tem_copied_base + 1, remain_index2 + 1)))
+            
             original_string_dup = copy.deepcopy(real_con1[remain_index2-tem_copied_base+1:remain_index2+1])
             #original_string_dup_reverse = DNA_complement(original_string_dup[::-1])
             # sample the deletion site
@@ -944,6 +1066,10 @@ def ID8_taninvdupDEL_process(SV_table, VCF_table, unblock_region_sv, SV_loop, VC
                 circular_count_TanDup_break = 0
         if not circular_count_TanDup_break:
             circular_count_TanDup = 0
+            
+            #! Remove the copied region from unblock_region_sv (关键修改点)
+            unblock_region_sv = list(set(unblock_region_sv) - set(range(remain_index2 - tem_copied_base + 1, remain_index2 + 1)))
+            
             original_string_dup = copy.deepcopy(real_con1[remain_index2-tem_copied_base+1:remain_index2+1])
             original_string_dup_reverse = DNA_complement(original_string_dup[::-1])
             # sample the deletion site
@@ -1022,6 +1148,10 @@ def ID9_tandup_delinv_process(SV_table, VCF_table, unblock_region_sv, SV_loop, V
                 circular_count_TanDup_break = 0
         if not circular_count_TanDup_break:
             circular_count_TanDup = 0
+            
+            #! Remove the copied region from unblock_region_sv (关键修改点)
+            unblock_region_sv = list(set(unblock_region_sv) - set(range(remain_index2 - tem_copied_base + 1, remain_index2 + 1)))
+            
             original_string_dup = copy.deepcopy(real_con1[remain_index2-tem_copied_base+1:remain_index2+1])
             #! original_string_dup_reverse = original_string_dup[::-1]
             #original_string_dup_reverse = DNA_complement(original_string_dup[::-1])
@@ -1148,6 +1278,10 @@ def ID10_taninvdup_delinv_process(SV_table, VCF_table, unblock_region_sv, SV_loo
                 circular_count_TanDup_break = 0
         if not circular_count_TanDup_break:
             circular_count_TanDup = 0
+            
+            #! Remove the copied region from unblock_region_sv (关键修改点)
+            unblock_region_sv = list(set(unblock_region_sv) - set(range(remain_index2 - tem_copied_base + 1, remain_index2 + 1)))
+            
             original_string_dup = copy.deepcopy(real_con1[remain_index2-tem_copied_base+1:remain_index2+1])
             #! original_string_dup_reverse = original_string_dup[::-1]
             original_string_dup_reverse = DNA_complement(original_string_dup[::-1])
@@ -1379,6 +1513,15 @@ def ID12_dupinv_process(SV_table, VCF_table, unblock_region_sv, SV_loop, VCF_loo
             
             Ins_dic_sv[remain_index22] = ''.join(copied_string)
             
+            #! Remove the copied region from unblock_region_sv (关键修改点)
+            # 关键修改：从 unblock_region_sv 中删除被复制的源区域
+            # 注意：源区域是 [remain_index2, remain_index2 + l_s_dup - 1]（闭区间）
+            unblock_region_sv = list(set(unblock_region_sv) - set(range(remain_index2, remain_index2 + l_s_dup)))
+
+            # 同时删除目标插入点（避免后续变异重叠）
+            unblock_region_sv = list(set(unblock_region_sv) - {remain_index22, remain_index22 + 1})
+                        
+            
             SV_table.loc[SV_loop] = [SV_loop,ll_c,'Duplication',remain_index2,remain_index2+l_s_dup-1,l_s_dup,remain_index22,remain_index22, l_s,-1,0,0,0,0,'CSV_TYPE=ID12;CSV_INDEX='+str(CSV_loop)]
             SV_loop = SV_loop + 1
             VCF_table.loc[VCF_loop] = [str(chr_id), str(remain_index22), 'rs' + str(VCF_loop), tem_seq_post[remain_index22], tem_seq_post[remain_index22]+''.join(copied_string), '.', 'PASS', 'SVTYPE=DUP;CSV_TYPE=ID12;CSV_INDEX='+str(CSV_loop)]
@@ -1452,6 +1595,14 @@ def ID13_invdup_process(SV_table, VCF_table, unblock_region_sv, SV_loop, VCF_loo
             copied_string = tem_seq_post[remain_index2:remain_index2+l_s_dup]
             
             Ins_dic_sv[remain_index22] = ''.join(copied_string)
+            
+            #! Remove the copied region from unblock_region_sv (关键修改点)
+            # 关键修改：从 unblock_region_sv 中删除被复制的源区域
+            # 注意：源区域是 [remain_index2, remain_index2 + l_s_dup - 1]（闭区间）
+            unblock_region_sv = list(set(unblock_region_sv) - set(range(remain_index2, remain_index2 + l_s_dup)))
+
+            # 同时删除目标插入点（避免后续变异重叠）
+            unblock_region_sv = list(set(unblock_region_sv) - {remain_index22, remain_index22 + 1})
             
             SV_table.loc[SV_loop] = [SV_loop,ll_c,'Duplication',remain_index2,remain_index2+l_s_dup-1,l_s_dup,remain_index22,remain_index22, l_s,-1,0,0,0,0,'CSV_TYPE=ID13;CSV_INDEX='+str(CSV_loop)]
             SV_loop = SV_loop + 1
@@ -1533,6 +1684,7 @@ def ID14_dupinvdupprocess(SV_table, VCF_table, unblock_region_sv, SV_loop, VCF_l
             remain_index22_dup1 = r_s - 1
             copied_string1 = tem_seq_post[remain_index2_dup1:remain_index2_dup1+l_s_dup1]
             Ins_dic_sv[remain_index22_dup1] = ''.join(copied_string1)
+            
             SV_table.loc[SV_loop] = [SV_loop,ll_c,'Duplication',remain_index2_dup1,remain_index2_dup1+l_s_dup1-1,l_s_dup1,remain_index22_dup1,remain_index22_dup1, l_s,-1,0,0,0,0,'CSV_TYPE=ID14;CSV_INDEX='+str(CSV_loop)]
             SV_loop = SV_loop + 1
             VCF_table.loc[VCF_loop] = [str(chr_id), str(remain_index22_dup1), 'rs' + str(VCF_loop), tem_seq_post[remain_index22_dup1], tem_seq_post[remain_index22_dup1]+''.join(copied_string1), '.', 'PASS', 'SVTYPE=DUP;CSV_TYPE=ID14;CSV_INDEX='+str(CSV_loop)]
@@ -1545,6 +1697,23 @@ def ID14_dupinvdupprocess(SV_table, VCF_table, unblock_region_sv, SV_loop, VCF_l
             
             copied_string2 = tem_seq_post[remain_index2_dup2:remain_index2_dup2+l_s_dup2]
             Ins_dic_sv[remain_index22_dup2] = ''.join(copied_string2)
+            
+            #! Key Modification: Remove BOTH copied regions from unblock_region_sv
+            # 1. Remove first copied region [remain_index2_dup1, remain_index2_dup1 + l_s_dup1 - 1]
+            # 2. Remove second copied region [remain_index2_dup2, remain_index2_dup2 + l_s_dup2 - 1]
+            unblock_region_sv = list(
+                set(unblock_region_sv) - 
+                set(range(remain_index2_dup1, remain_index2_dup1 + l_s_dup1)) -
+                set(range(remain_index2_dup2, remain_index2_dup2 + l_s_dup2))
+            )
+
+            # Also remove insertion points to prevent overlap
+            unblock_region_sv = list(
+                set(unblock_region_sv) - 
+                {remain_index22_dup1, remain_index22_dup1 + 1} -
+                {remain_index22_dup2, remain_index22_dup2 + 1}
+            )
+
             
             SV_table.loc[SV_loop] = [SV_loop,ll_c,'Duplication',remain_index2_dup2,remain_index2_dup2+l_s_dup2-1,l_s_dup2,remain_index22_dup2,remain_index22_dup2, l_s,-1,0,0,0,0,'CSV_TYPE=ID14;CSV_INDEX='+str(CSV_loop)]
             SV_loop = SV_loop + 1
@@ -1624,6 +1793,14 @@ def ID15_dupinv_process(SV_table, VCF_table, unblock_region_sv, SV_loop, VCF_loo
             # inserted pos is before r_s
             remain_index22 = r_s-1
             copied_string = tem_seq_post[remain_index2:remain_index2+l_s_dup]
+            
+            #! Remove the copied region from unblock_region_sv (关键修改点)
+            # 关键修改：从 unblock_region_sv 中删除被复制的源区域
+            # 注意：源区域是 [remain_index2, remain_index2 + l_s_dup - 1]（闭区间）
+            unblock_region_sv = list(set(unblock_region_sv) - set(range(remain_index2, remain_index2 + l_s_dup)))
+
+            # 同时删除目标插入点（避免后续变异重叠）
+            unblock_region_sv = list(set(unblock_region_sv) - {remain_index22, remain_index22 + 1})
             
             Ins_dic_sv[remain_index22] = ''.join(copied_string)
             
@@ -1715,6 +1892,14 @@ def ID16_dupinv_process(SV_table, VCF_table, unblock_region_sv, SV_loop, VCF_loo
             remain_index22 = r_s + l_s_invdel
             copied_string = tem_seq_post[remain_index2:remain_index2+l_s_dup]
             
+            #! Remove the copied region from unblock_region_sv (关键修改点)
+            # 关键修改：从 unblock_region_sv 中删除被复制的源区域
+            # 注意：源区域是 [remain_index2, remain_index2 + l_s_dup - 1]（闭区间）
+            unblock_region_sv = list(set(unblock_region_sv) - set(range(remain_index2, remain_index2 + l_s_dup)))
+
+            # 同时删除目标插入点（避免后续变异重叠）
+            unblock_region_sv = list(set(unblock_region_sv) - {remain_index22, remain_index22 + 1})
+            
             Ins_dic_sv[remain_index22] = ''.join(copied_string)
             
             SV_table.loc[SV_loop] = [SV_loop,ll_c,'Duplication',remain_index2,remain_index2+l_s_dup-1,l_s_dup,remain_index22,remain_index22, l_s,-1,0,0,0,0,'CSV_TYPE=ID16;CSV_INDEX='+str(CSV_loop)]
@@ -1781,6 +1966,10 @@ def ID17_dupTRIPdup_INV_process(unblock_region_sv, True_ID17_number, times,  rea
         #ratio_re_ID17:neighbor InvDuplication (right after the copied area)
         if not circular_count_ID17_break:
             circular_count_ID17=0
+            #! 关键修改：从unblock_region_sv中删除被复制的区域
+            changed_region = range(remain_index2 - l_s + 1, remain_index2 + 1)
+            unblock_region_sv = list(set(unblock_region_sv) - set(changed_region))
+            
             #!
             # unblock_region_sv = list(set(unblock_region_sv) -set(range(remain_index2-l_s+1,remain_index2)))
             original_string_dup = copy.deepcopy(real_con1[remain_index2-l_s+1:remain_index2+1])
@@ -1966,7 +2155,7 @@ def long_del_process(SV_table, VCF_table, unblock_region_sv, SV_loop, VCF_loop,t
             
             #The ‘REF’ column is set to the original segment plus the base that is left after the deletion. 
             #The ‘ALT’ column is set to the base that is left after the deletion.
-            # Add a row to the VCF_table for the micro deletion
+            # Add a row to the VCF_table for the small deletion
             #VCF_table[VCF_loop] = [str(chr_id), str(r_s), 'rs' + str(VCF_loop), tem_seq_post[r_s:r_s+l_s] + tem_seq_post[r_s+l_s], tem_seq_post[r_s+l_s], '.', 'PASS', 'SVTYPE=DEL']
             VCF_table.loc[VCF_loop] = [str(chr_id), str(r_s), 'rs' + str(VCF_loop), ''.join(tem_seq_post[r_s:r_s+l_s]) + tem_seq_post[r_s+l_s], tem_seq_post[r_s+l_s], '.', 'PASS', 'SVTYPE=DEL;SVLEN='+str(l_s)]
             VCF_loop = VCF_loop + 1
@@ -2038,19 +2227,19 @@ def long_ins_process(unblock_region_sv,sv_ins, condition_dist_sv_ins, len_SV_ins
             SV_table.loc[SV_loop] = [SV_loop, ll_c, 'Insertion', remain_index2, remain_index2, l_i, -1, -1, -1, -1, 0, 0, 0, 0,'.']
             SV_loop = SV_loop + 1
 
-            # Add a row to the VCF_table for the micro insertion
+            # Add a row to the VCF_table for the small insertion
             VCF_table.loc[VCF_loop] = [str(chr_id), str(remain_index2), 'rs' + str(VCF_loop), tem_seq_post[remain_index2], tem_seq_post[remain_index2] + tem_ins.upper(), '.', 'PASS', 'SVTYPE=INS;SVLEN='+str(l_i)]
             VCF_loop = VCF_loop + 1
 
     return SV_table, VCF_table, unblock_region_sv, SV_loop, VCF_loop, Ins_dic_sv, tem_seq_post
 
-#! micro del
+#! small del
 
 pai_pro_tem = [diff_ins_prob_del_real, diff_ins_prob_mis_real, diff_ins_prob_correct_real]
 pai_pro_tem_ = list(np.array(pai_pro_tem) / sum(pai_pro_tem))
 
 def micro_del_process(snv_del, unblock_region_sv, pai_pro_tem_, times, SV_table, VCF_table, ll_c, chr_id, tem_seq_post, SV_loop, VCF_loop, Ins_dic_sv):
-    print('Micro del:'+str(snv_del))
+    print('Small del:'+str(snv_del))
     # micro_del#对每一段进行处理
     if not unblock_region_sv:  # 如果segment是空集，输出警告
         print("Warning: empty unblock_region_sv")
@@ -2060,7 +2249,7 @@ def micro_del_process(snv_del, unblock_region_sv, pai_pro_tem_, times, SV_table,
 
     # 计算需要选择的位点的数量
     if not circular_count_micro_del_break:
-        ## micro deletion part
+        ## small deletion part
         len_unblock_region = len(unblock_region_sv)
         l_s_vec_ini = np.random.multinomial(n=len_unblock_region, pvals=pai_pro_tem_)
 
@@ -2077,8 +2266,8 @@ def micro_del_process(snv_del, unblock_region_sv, pai_pro_tem_, times, SV_table,
             del_snv_number = min(input_del, max_del)
             if input_del > max_del:
                 print("Warning: The input for -snv_del is too large and has been automatically reduced. \
-                    This is because each micro deletion event requires at least one position, and there must be at least one position between two micro deletion events. \
-                        Therefore, the maximum number of micro deletions that can occur is half of the total number of positions available for events.")
+                    This is because each small deletion event requires at least one position, and there must be at least one position between two small deletion events. \
+                        Therefore, the maximum number of small deletions that can occur is half of the total number of positions available for events.")
 
         len_seg_refine = max(unblock_region_sv)
         # for each deletion
@@ -2123,18 +2312,18 @@ def micro_del_process(snv_del, unblock_region_sv, pai_pro_tem_, times, SV_table,
 
             # for ll in del_sites_indexes:
             #     #tem_seq_post[int(ll)] = '-'
-            #     SV_table[SV_loop] = [SV_loop,ll_c,'Micro_Del',ll,ll,1,-1,-1,-1,-1,0,0,0,0]
+            #     SV_table[SV_loop] = [SV_loop,ll_c,'Small_Del',ll,ll,1,-1,-1,-1,-1,0,0,0,0]
             #     SV_loop = SV_loop + 1
-                SV_table.loc[SV_loop] = [SV_loop, ll_c, 'Micro_Del', r_s, r_s + l_s - 1, l_s, -1, -1, -1, -1, 0, 0, 0, 0, '.']
+                SV_table.loc[SV_loop] = [SV_loop, ll_c, 'Small_Del', r_s, r_s + l_s - 1, l_s, -1, -1, -1, -1, 0, 0, 0, 0, '.']
                 SV_loop = SV_loop + 1
 
                 # The ‘REF’ column is set to the original segment plus the base that is left after the deletion.
                 # The ‘ALT’ column is set to the base that is left after the deletion.
-                # Add a row to the VCF_table for the micro deletion
-                # VCF_table[VCF_loop] = [str(chr_id), str(r_s), 'rs' + str(VCF_loop), tem_seq_post[r_s:r_s+l_s] + tem_seq_post[r_s+l_s], tem_seq_post[r_s+l_s], '.', 'PASS', 'SVTYPE=microDEL']
+                # Add a row to the VCF_table for the small deletion
+                # VCF_table[VCF_loop] = [str(chr_id), str(r_s), 'rs' + str(VCF_loop), tem_seq_post[r_s:r_s+l_s] + tem_seq_post[r_s+l_s], tem_seq_post[r_s+l_s], '.', 'PASS', 'SVTYPE=smallDEL']
                 VCF_table.loc[VCF_loop] = [str(chr_id), str(r_s), 'rs' + str(VCF_loop),
                                            ''.join(tem_seq_post[r_s:r_s + l_s]) + tem_seq_post[r_s + l_s],
-                                           tem_seq_post[r_s + l_s], '.', 'PASS', 'microDEL;LEN='+str(l_s)]
+                                           tem_seq_post[r_s + l_s], '.', 'PASS', 'smallDEL;LEN='+str(l_s)]
 
                 VCF_loop = VCF_loop + 1
 
@@ -2144,12 +2333,12 @@ def micro_del_process(snv_del, unblock_region_sv, pai_pro_tem_, times, SV_table,
                 break
     return SV_table, VCF_table, unblock_region_sv, SV_loop, VCF_loop, Ins_dic_sv, tem_seq_post
 
-#! micro ins
-### micro insertions
+#! small ins
+### small insertions
 # 对每一段进行处理
 
 def micro_ins_process(snv_ins, unblock_region_sv, diff_ins_prob_ins_real, ins_selection, SV_table, VCF_table, ll_c, chr_id, tem_seq_post, SV_loop, VCF_loop, Ins_dic_sv):
-    print('Micro ins:'+str(snv_ins))
+    print('Small ins:'+str(snv_ins))
     # 如果segment是空集，输出警告
     if not unblock_region_sv:
         print("Warning: empty unblock_region_sv")
@@ -2190,11 +2379,11 @@ def micro_ins_process(snv_ins, unblock_region_sv, diff_ins_prob_ins_real, ins_se
                 unblock_region_sv.remove(remain_index2+1)
 
             #only one record in the table for each remain_index2
-            SV_table.loc[SV_loop] = [SV_loop,ll_c,'Micro_Ins',remain_index2,remain_index2,l_i,-1,-1,-1,-1,0,0,0,0,'.']
+            SV_table.loc[SV_loop] = [SV_loop,ll_c,'Small_Ins',remain_index2,remain_index2,l_i,-1,-1,-1,-1,0,0,0,0,'.']
             SV_loop = SV_loop + 1
 
-            # Add a row to the VCF_table for the micro insertion
-            VCF_table.loc[VCF_loop] = [str(chr_id), str(remain_index2), 'rs' + str(VCF_loop), tem_seq_post[remain_index2], tem_seq_post[remain_index2] + tem_ins.upper(), '.', 'PASS', 'microINS;LEN='+str(l_i)]
+            # Add a row to the VCF_table for the small insertion
+            VCF_table.loc[VCF_loop] = [str(chr_id), str(remain_index2), 'rs' + str(VCF_loop), tem_seq_post[remain_index2], tem_seq_post[remain_index2] + tem_ins.upper(), '.', 'PASS', 'smallINS;LEN='+str(l_i)]
             VCF_loop = VCF_loop + 1
     return SV_table, VCF_table, unblock_region_sv, SV_loop, VCF_loop, Ins_dic_sv, tem_seq_post
 
@@ -2279,8 +2468,8 @@ def CSV_finalize_table(SV_table_merged,ll_c, tem_ins_dic):
             #stand_line = int(SV_table_merged.iloc[ls_satrt1_index_df,0])
             #tem_row = SV_table_merged.iloc[ls_satrt1_index_df,:]
                 #class of SV
-                if tem_row[2] in ['Substitution','Micro_Ins','Micro_Del','Deletion','Insertion','Inversion']:
-                    if tem_row[2] in ['Deletion','Micro_Del']:
+                if tem_row[2] in ['Substitution','Small_Ins','Small_Del','Deletion','Insertion','Inversion']:
+                    if tem_row[2] in ['Deletion','Small_Del']:
                         inster_number_bone = bone1s-last_bone-1
                         #index for consensus before start of current variation
                         present_len = present_len + inster_number_bone
@@ -2301,7 +2490,7 @@ def CSV_finalize_table(SV_table_merged,ll_c, tem_ins_dic):
                         SV_table_merged.iloc[stand_line,11] = present_len
                         SV_table_merged.iloc[stand_line,12] = -1
                         SV_table_merged.iloc[stand_line,13] = -1
-                    elif tem_row[2] in ['Micro_Ins','Insertion']:
+                    elif tem_row[2] in ['Small_Ins','Insertion']:
                         inster_number_bone = bone1s-last_bone
                         Ins_len_present = len(tem_ins_dic[bone1s])
                         #inserted position on consensus: one pos:+1, inserted after current base
@@ -2558,7 +2747,7 @@ def main():
     start_time1 = time.time()
     args = parse_args()
     times = args.times
-    
+    os.makedirs(args.save, exist_ok=True)
     # 设置main_url_empirical为固定的路径
     main_url_empirical = os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', 'empirical') + '/'
     # save = args.save
@@ -2656,8 +2845,16 @@ def main():
     condition_dist_sv_del = np.load(main_url_empirical+'condition_dist_sv_del.npy').tolist()
 
     #modifiable deletion length
-    delmin = args.delmin
-    delmax = args.delmax
+    # delmin = args.delmin
+    # delmax = args.delmax
+
+    #modifiable deletion length
+    delmin = max(50, int(args.delmin))
+    delmax = int(args.delmax)
+    # 检查和调整 delmax
+    if delmin >= delmax:
+        print(f"Warning: delmin ({delmin}) is greater than delmax ({delmax}). Adjusting delmax to {delmin + 50}.")
+        delmax = delmin + 50  # 自动调整为比 delmin 大50的值
 
     # 选择长度在delmin和delmax之间的子集
     selected_lengths = [all_del_len for all_del_len in len_SV_del if delmin <= all_del_len <= delmax]
@@ -2680,8 +2877,18 @@ def main():
     len_SV_ins = np.load(main_url_empirical+'len_SV_ins.npy').tolist()
     condition_dist_sv_ins = np.load(main_url_empirical+'condition_dist_sv_ins.npy').tolist()
 
-    insmin = args.insmin
-    insmax = args.insmax
+    # insmin = args.insmin
+    # insmax = args.insmax
+    #! 对概率进行归一化
+    #! length probabilities
+    insmin = max(50, int(args.insmin))
+    insmax = int(args.insmax)
+
+    # 检查和调整 insmax（同款逻辑）
+    if insmin >= insmax:
+        print(f"Warning: insmin ({insmin}) is greater than insmax ({insmax}). Adjusting insmax to {insmin + 50}.")
+        insmax = insmin + 50  # 自动调整为比 insmin 大50的值
+
 
     # 选择长度在insmin和insmax之间的子集
     selected_lengths = [l for l in len_SV_ins if insmin <= l <= insmax]
@@ -2702,6 +2909,11 @@ def main():
     
     dupmin = args.dupmin
     dupmax = args.dupmax
+    # 检查和调整 dupmax
+    if dupmin > dupmax:
+        print(f"Warning: dupmin ({dupmin}) is greater than dupmax ({dupmax}). Adjusting dupmax to {dupmin + 50}.")
+        dupmax = dupmin + 50  # 自动调整 dupmax
+        
     # 计算整数范围
     dup_range = np.arange(dupmin, dupmax + 1)
     # 计算每个整数的概率（均匀分布）
@@ -2715,8 +2927,17 @@ def main():
     # 设置参数
     # invmin = 84
     # invmax = 207683
-    invmin = args.invmin
-    invmax = args.invmax
+    # invmin = args.invmin
+    # invmax = args.invmax
+    # 处理倒位长度范围
+    invmin = max(50, int(args.invmin))  # 确保最小值不低于50bp且为整数
+    invmax = int(args.invmax)           # 确保为整数
+
+    # 检查和调整 invmax（完全同款逻辑）
+    if invmin >= invmax:
+        print(f"Warning: invmin ({invmin}) is greater than invmax ({invmax}). "
+            f"Adjusting invmax to {invmin + 50}.")
+        invmax = invmin + 50  # 自动调整为比 invmin 大50bp
 
     # 计算整数范围
     inv_range = np.arange(invmin, invmax + 1)
@@ -2728,8 +2949,16 @@ def main():
     len_SV_inver = inv_range.tolist()
     condition_dist_sv_inver = inv_sv_prob
     
-    transmin = args.transmin
-    transmax = args.transmax
+    # transmin = args.transmin
+    # transmax = args.transmax
+    transmin = max(50, int(args.transmin))
+    transmax = int(args.transmax)
+
+    # 检查和调整 transmax（同款逻辑）
+    if transmin >= transmax:
+        print(f"Warning: transmin ({transmin}) is greater than transmax ({transmax}). Adjusting transmax to {transmin + 50}.")
+        transmax = transmin + 50  # 自动调整为比 transmin 大50的值
+
 
     # 计算整数范围
     trans_range = np.arange(transmin, transmax + 1)
@@ -2910,13 +3139,23 @@ def main():
     if args.write:
         print('finalize table')
         SV_table_merged = CSV_finalize_table(SV_table_merged,ll_c, tem_ins_dic)
-        SV_table_merged.to_csv(args.save +'BV_' + str(args.rep) + '_seq_' + str(seqname) + '_SVtable_full.csv', header=True, index=False)
-   
+        # SV_table_merged.to_csv(args.save +'BV_' + str(args.rep) + '_seq_' + str(seqname) + '_SVtable_full.csv', header=True, index=False)
+        output_path = args.save +'BV_' + str(args.rep) + '_seq_' + str(seqname) + '_SVtable_full.csv'
+        SV_table_merged.to_csv(output_path, header=True, index=False)
+        print(f"Saved full SV table to {output_path}")
     else:
-        SV_table_merged.to_csv(args.save +'BV_' + str(args.rep) + '_seq_' + str(seqname) + '_SVtable.csv', header=True, index=False)
+        # SV_table_merged.to_csv(args.save +'BV_' + str(args.rep) + '_seq_' + str(seqname) + '_SVtable.csv', header=True, index=False)
+        # # Save the dictionary as a .npy file
+        # np.save(args.save+'BV_'+str(args.rep) + '_seq_' + str(seqname) + '_tem_ins_dic.npy', tem_ins_dic)
+        output_path = args.save +'BV_' + str(args.rep) + '_seq' + str(seqname) + '_SVtable.csv'
+        SV_table_merged.to_csv(output_path, header=True, index=False)
+        print(f"Saved SV table to {output_path}")
+        
         # Save the dictionary as a .npy file
-        np.save(args.save+'BV_'+str(args.rep)+ '_seq_'+str(seqname)+'_tem_ins_dic.npy', tem_ins_dic)
-    
+        dic_path = args.save+'BV_'+str(args.rep) + '_seq_' + str(seqname) + '_tem_ins_dic.npy'
+        np.save(dic_path, tem_ins_dic)
+        print(f"Saved tem_ins_dic to {dic_path}")
+        
     # 按照 'pos' 列排序
     VCF_table_merged = copy.deepcopy(VCF_table)
     VCF_table_merged.sort_values(by='POS', inplace=True)
@@ -2926,89 +3165,18 @@ def main():
 
     # 更新 'CSV_TYPE=ID' 列
     VCF_table_merged['CSV_TYPE=ID'] = 'rs' + VCF_table_merged.index.astype(str)
-            
-    def write_template_fasta_con(args, seqname, consensus_):
-        # Prepare the new sequence
-        sequences = [consensus_]
-        new_sequences = []
-        for sequence in sequences:
-            record = SeqRecord(Seq(re.sub('[^GATCN-]', "", str(sequence).upper())), id=seqname, name=seqname, description="<custom description>")
-            new_sequences.append(record)
-
-        # Write the new sequence to a file
-        with open(args.save + 'BV_' + str(args.rep) + "_seq_"+str(seqname) +".fasta", "w") as output_handle:
-            SeqIO.write(new_sequences, output_handle, "fasta")
-
-    ############vcf
-        
-    # def write_vcf(df, save, rep, con_id, ref, seqname, start_base, end_base):
-    def write_vcf(args, df, seqname, start_base, end_base):
-        # Get the current date
-        current_date = datetime.now().strftime('%Y%m%d')
-        # Add the additional columns to the DataFrame
-        df['FORMAT'] = 'GT'
-        df['SAMPLE_ID'] = '1/1'
-        # Write the DataFrame to a VCF file
-        with open(args.save +'BV_' + str(args.rep) + '_seq_' + str(seqname) +".vcf", 'w') as f:
-            f.write('##fileformat=VCFv4.2\n')
-            f.write('##fileDate=' + current_date + '\n')
-            f.write('##source=uniform.py\n')
-            f.write('##reference=' + args.ref + ':' + str(start_base) + '-' + str(end_base) + '\n')
-            f.write('##contig=<ID='+str(seqname)+',length=' + str(end_base - start_base + 1) + '>\n')
-            f.write('##source=CSV.py\n')
-            f.write('##reference=' + ref + ':' + str(start_base) + '-' + str(end_base) + '\n')
-            f.write('##contig=<ID='+str(seqname)+',length=' + str(end_base - start_base + 1) + '>\n')
-            f.write('##INFO=<ID=SVTYPE,Number=1,Type=String,Description="Type of structural variant">\n')
-            f.write('##INFO=<ID=SVLEN,Number=1,Type=Integer,Description="Length of the variant">\n')
-            f.write('##INFO=<ID=CSV_TYPE,Number=1,Type=String,Description="Complex SV type">\n')
-            f.write('##INFO=<ID=CSV_INDEX,Number=1,Type=Integer,Description="Index of the generated complex SV">\n')
-            f.write('##INFO=<ID=ID1,Number=1,Type=String,Description="TanInvDup (Tandem Inverted Dup)">\n')
-            f.write('##INFO=<ID=ID2,Number=1,Type=String,Description="DisInvDup (Dispersed Inverted Dup)">\n')
-            f.write('##INFO=<ID=ID3,Number=1,Type=String,Description="DisDup">\n')
-            f.write('##INFO=<ID=ID4,Number=1,Type=String,Description="DEL + INV">\n')
-            f.write('##INFO=<ID=ID5,Number=1,Type=String,Description="DEL + DisInvDup">\n')
-            f.write('##INFO=<ID=ID6,Number=1,Type=String,Description="DEL + DisDup">\n')
-            f.write('##INFO=<ID=ID7,Number=1,Type=String,Description="TanDup + DEL">\n')
-            f.write('##INFO=<ID=ID8,Number=1,Type=String,Description="TanInvDup + DEL">\n')
-            f.write('##INFO=<ID=ID9,Number=1,Type=String,Description="TanDup + DEL + INV">\n')
-            f.write('##INFO=<ID=ID10,Number=1,Type=String,Description="TanInvDup + DEL + INV">\n')
-            f.write('##INFO=<ID=ID11,Number=1,Type=String,Description="DEL + DEL + INV">\n')
-            f.write('##INFO=<ID=ID12,Number=1,Type=String,Description="DUP + INV">\n')
-            f.write('##INFO=<ID=ID13,Number=1,Type=String,Description="INV + DUP">\n')
-            f.write('##INFO=<ID=ID14,Number=1,Type=String,Description="DUP + INV + DUP">\n')
-            f.write('##INFO=<ID=ID15,Number=1,Type=String,Description="DUP + INV + DEL">\n')
-            f.write('##INFO=<ID=ID16,Number=1,Type=String,Description="DEL + INV + DUP">\n')
-            f.write('##INFO=<ID=ID17,Number=1,Type=String,Description="DUPTRIPDUP + INV">\n')
-            f.write('##INFO=<ID=ID18,Number=1,Type=String,Description="DEL + unbalancedTrans">\n')
-            
-            f.write('##INFO=<ID=SUB,Number=1,Type=String,Description="Substitution">\n')
-            f.write('##INFO=<ID=microINS,Number=1,Type=String,Description="Micro insertion">\n')
-            f.write('##INFO=<ID=LEN,Number=1,Type=Integer,Description="Length of the variant">\n')
-            f.write('##INFO=<ID=microDEL,Number=1,Type=String,Description="Micro deletion">\n')
-            f.write('##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">\n')
-            f.write('#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tSAMPLE_ID\n')
-            df.to_csv(f, sep='\t', index=False, header=False)
-        
-            
-
-            
-            
     #def write_template_fasta_con(save, seqname, consensus_, rep, con_id):
 
     write_template_fasta_con(args, seqname, updated_con[0])
-    
-    
-    #def write_vcf(df, save, rep, con_id, ref, start_base, end_base):
-    #write_vcf(VCF_table_merged, save,rep,ll_c,ref,seqname,start_base, end_base)
     write_vcf(args, VCF_table_merged, seqname, start_base, end_base)
     end_time2 = time.time()
 
-    elapsed_time1 = end_time1 - start_time1
+    # elapsed_time1 = end_time1 - start_time1
     #formatted_time1 = str(timedelta(seconds=elapsed_time1))
 
     #print(f"Trans,INV,DUP运行时间：{formatted_time1}")
 
-    elapsed_time2 = end_time2 - start_time2
+    # elapsed_time2 = end_time2 - start_time2
     #formatted_time2 = str(timedelta(seconds=elapsed_time2))
 
     #print(f"写出结果运行时间：{formatted_time2}")

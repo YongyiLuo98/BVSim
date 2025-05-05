@@ -9,6 +9,29 @@ def parse_args():
     parser.add_argument('-seed', type=int, help='Seed for random number generator', default=999)
     parser.add_argument('-times', type=int, help='Number of times', default=10)
     parser.add_argument('-rep', type=int, help='Replication ID', default=99)
+    
+    parser.add_argument('-seq_index', type=int, default=0, help='Index of sequence to use (0-based). Default: 0 (first sequence)')
+    
+    
+    # VCF-specific arguments
+    parser.add_argument('-vcf', type=str, help='Run VCF.py script with input VCF file path')
+    
+    # 删除原来的 --vcf_input 参数
+    # 保留其他VCF-specific arguments
+    parser.add_argument('-chr', type=str, help='Target chromosome (e.g., chr21)')
+    parser.add_argument('-select', type=str, help='Selection criteria (e.g., "AF>0.001", "SVLEN>=100")')
+    parser.add_argument('-min_len', type=int, default=50, help='Minimum SV length (bp)')
+    parser.add_argument('-sv_types', nargs='+', default=["DEL", "INS", "DUP", "INV"], 
+                       help='SV types to include')
+    
+    # 变异生成模式选择
+    
+    parser.add_argument('-exact', action='store_true', help='Generate exact variants from input table')
+    parser.add_argument('-variant_table', type=str, help='Path to variant table CSV/TSV file (required for exact mode)')
+     # 验证参数
+    parser.add_argument('-validate_only', action='store_true',
+                      help='Only validate input without generating variants')
+    
     parser.add_argument('-sv_trans', type=int, help='Number of trans SV', default=5)
     parser.add_argument('-sv_inver', type=int, help='Number of inversion SV', default=5)
     parser.add_argument('-sv_dup', type=int, help='True duplication number', default=5)
@@ -132,7 +155,56 @@ def main():
      # 获取main.py文件所在的路径
     main_dir = os.path.dirname(os.path.realpath(__file__))
     
-    if args.csv:
+    # Handle VCF mode
+    if args.vcf:  # 现在args.vcf直接包含文件路径
+        script_name = "VCF.py"
+        cmd = [
+            "python", 
+            os.path.join(main_dir, script_name),
+            "-vcf", os.path.abspath(args.vcf),  # 直接使用args.vcf作为文件路径
+            "-save", args.save,
+            "-min_len", str(args.min_len),
+            "-sv_types"
+        ] + args.sv_types
+        
+        if hasattr(args, 'chr') and args.chr:
+            cmd.extend(["-chr", args.chr])
+        if hasattr(args, 'select') and args.select:
+            cmd.extend(["-select", args.select])
+            
+        # 执行VCF.py并退出
+        subprocess.run(cmd)
+        return  # 确保执行后直接退出
+        
+    elif args.exact:
+        # print("Entering exact mode...")  # 确认进入exact模式
+        script_name = "exact.py"
+        # 构建命令行参数列表
+        cmd = [
+            "python", 
+            os.path.join(main_dir, script_name),
+            "-ref", args.ref,
+            "-seed", str(args.seed), 
+             "-rep", str(args.rep), 
+            "-variant_table", args.variant_table,
+            "-save", args.save,
+            "-seq_index", str(args.seq_index)
+        ]
+        
+        # 添加可选参数
+        if args.seed is not None:
+            cmd.extend(["-seed", str(args.seed)])
+        if args.block_region_bed_url is not None:
+            cmd.extend(["-block_region_bed_url", args.block_region_bed_url])
+        if args.validate_only:
+            cmd.append("-validate_only")
+            
+        # # 执行exact.py并退出
+        # subprocess.run(cmd)
+        # return  # 确保执行后直接退出
+        
+    
+    elif args.csv:
         script_name = "CSV.py"
         cmd = [
     "python", os.path.join(main_dir, script_name), 
@@ -175,7 +247,12 @@ def main():
     "-num_ID15_csv", str(args.num_ID15_csv), "-mu_ID15", str(args.mu_ID15), "-sigma_ID15", str(args.sigma_ID15),
     "-num_ID16_csv", str(args.num_ID16_csv), "-mu_ID16", str(args.mu_ID16), "-sigma_ID16", str(args.sigma_ID16),
     "-num_ID17_csv", str(args.num_ID17_csv), "-mu_ID17", str(args.mu_ID17), "-sigma_ID17", str(args.sigma_ID17),
-    "-num_ID18_csv", str(args.num_ID18_csv), "-mu_ID18", str(args.mu_ID18), "-sigma_ID18", str(args.sigma_ID18)]
+    "-num_ID18_csv", str(args.num_ID18_csv), "-mu_ID18", str(args.mu_ID18), "-sigma_ID18", str(args.sigma_ID18),
+    "-seq_index", str(args.seq_index)]
+        
+        # # 执行exact.py并退出
+        # subprocess.run(cmd)
+        # return  # 确保执行后直接退出
 
     elif args.wave:
         script_name = "Wave.py"
@@ -193,7 +270,8 @@ def main():
                 "-invmax", str(args.invmax),
                 "-transmin", str(args.transmin), 
                 "-transmax", str(args.transmax),
-               "-mode", args.mode]
+               "-mode", args.mode,
+                "-seq_index", str(args.seq_index)]
         # 添加 indel_input_bed 参数
         if args.block_region_bed_url:
             cmd.extend(["-block_region_bed_url", str(args.block_region_bed_url)])
@@ -219,7 +297,10 @@ def main():
                 "-invmax", str(args.invmax),
                 "-transmin", str(args.transmin), 
                 "-transmax", str(args.transmax),
-               "-mode", args.mode, "-p_del_region", str(args.p_del_region), "-p_ins_region", str(args.p_ins_region)]
+               "-mode", args.mode, 
+               "-p_del_region", str(args.p_del_region), 
+               "-p_ins_region", str(args.p_ins_region),
+                "-seq_index", str(args.seq_index)]
         # 添加 indel_input_bed 参数
         if args.block_region_bed_url:
             cmd.extend(["-block_region_bed_url", str(args.block_region_bed_url)])
@@ -231,6 +312,10 @@ def main():
         cmd.extend(["-file_list"] + args.file_list)  # 将 file_list 展开为多个参数
         if args.sum:
             cmd.append("-sum")
+            
+        # # 执行exact.py并退出
+        # subprocess.run(cmd)
+        # return  # 确保执行后直接退出
             
     elif args.hg38:
         script_name = "Wave_hg38_TR.py"
@@ -249,7 +334,8 @@ def main():
                 "-transmin", str(args.transmin), 
                 "-transmax", str(args.transmax),
                "-mode", args.mode, "-p_del_region", str(args.p_del_region), "-p_ins_region", str(args.p_ins_region),
-               "-hg38", str(args.hg38)]
+               "-hg38", str(args.hg38),
+                "-seq_index", str(args.seq_index)]
         # 添加 indel_input_bed 参数
         if args.block_region_bed_url:
             cmd.extend(["-block_region_bed_url", str(args.block_region_bed_url)])
@@ -259,6 +345,10 @@ def main():
             cmd.extend(["-indel_input_bed", args.indel_input_bed])
         if args.sum:
             cmd.append("-sum")
+            
+        # # 执行exact.py并退出
+        # subprocess.run(cmd)
+        # return  # 确保执行后直接退出
             
     elif args.hg19:
         script_name = "Wave_hg19_TR.py"
@@ -277,7 +367,8 @@ def main():
                 "-transmin", str(args.transmin), 
                 "-transmax", str(args.transmax),
                "-mode", args.mode, "-p_del_region", str(args.p_del_region), "-p_ins_region", str(args.p_ins_region),
-               "-hg19", str(args.hg19)]
+               "-hg19", str(args.hg19),
+                "-seq_index", str(args.seq_index)]
         # 添加 indel_input_bed 参数
         if args.block_region_bed_url:
             cmd.extend(["-block_region_bed_url", str(args.block_region_bed_url)])
@@ -304,7 +395,9 @@ def main():
                 "-invmax", str(args.invmax),
                 "-transmin", str(args.transmin), 
                 "-transmax", str(args.transmax),
-               "-block_region_bed_url", str(args.block_region_bed_url)]
+               "-block_region_bed_url", str(args.block_region_bed_url),
+                "-seq_index", str(args.seq_index)]
+        
     else:
         script_name = "uniform.py"
         cmd = ["python", os.path.join(main_dir, script_name), "-ref", args.ref, "-save", args.save, 
@@ -321,7 +414,8 @@ def main():
                 "-invmax", str(args.invmax),
                 "-transmin", str(args.transmin), 
                 "-transmax", str(args.transmax),
-               "-block_region_bed_url", str(args.block_region_bed_url)]
+               "-block_region_bed_url", str(args.block_region_bed_url),
+                 "-seq_index", str(args.seq_index)]
             
     if args.snp is not None:
         cmd.extend(["-snp", str(args.snp)])
