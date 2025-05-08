@@ -427,8 +427,8 @@ def process_sv_data(empirical_data: List[float],
             
             print(f'Total {data_type.upper()}: {total_sv}')
             sv_per_segment = np.random.multinomial(total_sv, probabilities)
-            return list(sv_per_segment), total_sv
-        
+            # return list(sv_per_segment), total_sv
+            return [int(x) for x in sv_per_segment], int(total_sv)
         elif mode == 'empirical':
             # Round empirical data to integers
             empirical_ints = [int(round(x)) for x in empirical_data]
@@ -1332,7 +1332,7 @@ def parse_args():
     #parser.add_argument('-indel_input_bed', '--indel_input_bed', type=str, help='Input BED file for indels', default='~/data/test_data/TGS/hg002/chr21_SV_Tier1.bed')
     parser.add_argument('-p_del_region', type=float, help='Probability of SV DEL in the user-defined region for deletion', default=0.5)
     parser.add_argument('-p_ins_region', type=float, help='Probability of SV INS in the user-defined region for insertion', default=0.5)
-    parser.add_argument('-region_bed_url', type=str, help='local path of the BED file for the user-defined region', default='~/data/test_data/TGS/hg002/chr21_TR_unique.bed')
+    parser.add_argument('-region_bed_url', type=str, help='local path of the BED file for the user-defined region', default=None)
     parser.add_argument('-hg38', type=str, help='Chromosome name', required=False)
     return parser.parse_args()
 
