@@ -428,26 +428,27 @@ def process_sv_data(empirical_data: List[float],
             
             print(f'Total {data_type.upper()}: {total_sv}')
             sv_per_segment = np.random.multinomial(total_sv, probabilities)
-            return list(sv_per_segment), total_sv
-        
+            #! return list(sv_per_segment), total_sv
+            return [int(x) for x in sv_per_segment], int(total_sv)
         elif mode == 'empirical':
             # Round empirical data to integers
             empirical_ints = [int(round(x)) for x in empirical_data]
             total_sv = sum(empirical_ints)
             print(f'Total {data_type.upper()}: {total_sv}')
-            return empirical_ints, total_sv
-        
+            # return empirical_ints, total_sv
+            return [int(x) for x in empirical_ints], total_sv
         else:
             print(f'Error: Invalid mode {mode} for {data_type}. Using empirical values.')
             empirical_ints = [int(round(x)) for x in empirical_data]
             total_sv = sum(empirical_ints)
-            return empirical_ints, total_sv
-    
+            # return empirical_ints, total_sv
+            return [int(x) for x in empirical_ints], total_sv
     except Exception as e:
         print(f'Error processing {data_type} data: {str(e)}. Using empirical values.')
         empirical_ints = [int(round(x)) for x in empirical_data]
         total_sv = sum(empirical_ints)
-        return empirical_ints, total_sv
+        # return empirical_ints, total_sv
+        return [int(x) for x in empirical_ints], total_sv
 
 # 定义 SV_type 到缩写的映射规则
 def get_svtype_abbreviation(sv_type):

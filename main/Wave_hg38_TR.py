@@ -434,19 +434,21 @@ def process_sv_data(empirical_data: List[float],
             empirical_ints = [int(round(x)) for x in empirical_data]
             total_sv = sum(empirical_ints)
             print(f'Total {data_type.upper()}: {total_sv}')
-            return empirical_ints, total_sv
+            # return empirical_ints, total_sv
+            return [int(x) for x in empirical_ints], total_sv
         
         else:
             print(f'Error: Invalid mode {mode} for {data_type}. Using empirical values.')
             empirical_ints = [int(round(x)) for x in empirical_data]
             total_sv = sum(empirical_ints)
-            return empirical_ints, total_sv
-    
+            # return empirical_ints, total_sv
+            return [int(x) for x in empirical_ints], total_sv
     except Exception as e:
         print(f'Error processing {data_type} data: {str(e)}. Using empirical values.')
         empirical_ints = [int(round(x)) for x in empirical_data]
         total_sv = sum(empirical_ints)
-        return empirical_ints, total_sv
+        # return empirical_ints, total_sv
+        return [int(x) for x in empirical_ints], total_sv
 
 # 定义 SV_type 到缩写的映射规则
 def get_svtype_abbreviation(sv_type):
@@ -2319,49 +2321,81 @@ def main():
     #     print('warning: empirical ins info wrong dimension')
 
     # 对概率进行归一化
-    if len(del_empirical) == number_seg:
-        if mode == 'probability':
-            del_probabilities = [p_del/sum(del_empirical) for p_del in del_empirical]
-            if args.sum:
-                total_del_sv = sum(del_empirical)
-            else:
-                total_del_sv = args.sv_del
-            print('Total del:'+str(total_del_sv))
-            # 生成整数结果并四舍五入
-            del_SV_per_segment = np.round(np.random.multinomial(total_del_sv, del_probabilities)).astype(int)
+    # if len(del_empirical) == number_seg:
+    #     if mode == 'probability':
+    #         del_probabilities = [p_del/sum(del_empirical) for p_del in del_empirical]
+    #         if args.sum:
+    #             total_del_sv = sum(del_empirical)
+    #         else:
+    #             total_del_sv = args.sv_del
+    #         print('Total del:'+str(total_del_sv))
+    #         # 生成整数结果并四舍五入
+    #         del_SV_per_segment = np.round(np.random.multinomial(total_del_sv, del_probabilities)).astype(int)
             
-        elif mode == 'empirical':
-            # 将empirical数据四舍五入为整数
-            del_SV_per_segment = np.round(del_empirical).astype(int)
-            total_del_sv = sum(del_SV_per_segment)
-            print('Total del:'+str(total_del_sv))
-        else:
-            print('MODE TYPE ERROR')
-    else:
-        print('warning: empirical del info wrong dimension')
+    #     elif mode == 'empirical':
+    #         # 将empirical数据四舍五入为整数
+    #         del_SV_per_segment = np.round(del_empirical).astype(int)
+    #         total_del_sv = sum(del_SV_per_segment)
+    #         print('Total del:'+str(total_del_sv))
+    #     else:
+    #         print('MODE TYPE ERROR')
+    # else:
+    #     print('warning: empirical del info wrong dimension')
 
-    if len(ins_empirical) == number_seg:
-        if mode == 'probability':
-            ins_probabilities = [p_ins/sum(ins_empirical) for p_ins in ins_empirical]
-            if args.sum:
-                total_ins_sv = sum(ins_empirical)
-            else:
-                total_ins_sv = args.sv_ins
-            print('Total ins:'+str(total_ins_sv))
-            # 生成整数结果并四舍五入
-            ins_SV_per_segment = np.round(np.random.multinomial(total_ins_sv, ins_probabilities)).astype(int)
+    # if len(ins_empirical) == number_seg:
+    #     if mode == 'probability':
+    #         ins_probabilities = [p_ins/sum(ins_empirical) for p_ins in ins_empirical]
+    #         if args.sum:
+    #             total_ins_sv = sum(ins_empirical)
+    #         else:
+    #             total_ins_sv = args.sv_ins
+    #         print('Total ins:'+str(total_ins_sv))
+    #         # 生成整数结果并四舍五入
+    #         ins_SV_per_segment = np.round(np.random.multinomial(total_ins_sv, ins_probabilities)).astype(int)
             
-        elif mode == 'empirical':
-            # 将empirical数据四舍五入为整数
-            ins_SV_per_segment = np.round(ins_empirical).astype(int)
-            total_ins_sv = sum(ins_SV_per_segment)
-            print('Total ins:'+str(total_ins_sv))
-        else:
-            print('MODE TYPE ERROR')
-    else:
-        print('warning: empirical ins info wrong dimension')
+    #     elif mode == 'empirical':
+    #         # 将empirical数据四舍五入为整数
+    #         ins_SV_per_segment = np.round(ins_empirical).astype(int)
+    #         total_ins_sv = sum(ins_SV_per_segment)
+    #         print('Total ins:'+str(total_ins_sv))
+    #     else:
+    #         print('MODE TYPE ERROR')
+    # else:
+    #     print('warning: empirical ins info wrong dimension')
 
     # del ins_empirical, del_empirical
+    
+    mode = normalize_mode(args.mode)
+    # Process deletions
+    del_SV_per_segment, total_del_sv = process_sv_data(
+        empirical_data=del_empirical,
+        sv_total_arg=args.sv_del,
+        data_type='del',
+        number_seg=number_seg,
+        args_sum=args.sum,
+        mode=mode
+    )
+
+    # Process insertions
+    ins_SV_per_segment, total_ins_sv = process_sv_data(
+        empirical_data=ins_empirical,
+        sv_total_arg=args.sv_ins,
+        data_type='ins',
+        number_seg=number_seg,
+        args_sum=args.sum,
+        mode=mode
+    )
+
+    # Handle cases where processing failed
+    if del_SV_per_segment is None:
+        print("Error: Invalid deletion data. Please check your input.")
+        del_SV_per_segment = [0] * number_seg  # Default to zero counts
+        total_del_sv = 0
+
+    if ins_SV_per_segment is None:
+        print("Error: Invalid insertion data. Please check your input.")
+        ins_SV_per_segment = [0] * number_seg  # Default to zero counts
+        total_ins_sv = 0
         
     # del_SV_per_segment = np.random.multinomial(args.sv_del, seg_probabilities)
     # ins_SV_per_segment = np.random.multinomial(args.sv_ins, seg_probabilities)
