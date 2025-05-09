@@ -16,7 +16,7 @@ if [ ! -f "$OUT_DIR/hg19.simpleRepeat.bed.gz.tbi" ]; then
 fi
 
 # Process each chromosome from 1 to 21
-for chr in {1..21}; do
+for chr in {1..22}; do
     echo "Processing chromosome chr${chr}..."
     
     # Extract the relevant columns and create the BED file

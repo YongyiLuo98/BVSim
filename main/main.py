@@ -44,7 +44,8 @@ def parse_args():
     parser.add_argument('-write', action='store_true', help='Write full results')
     parser.add_argument('-block_region_bed_url', '--block_region_bed_url', type=str, help='local path of the block region BED file', default=None)
     parser.add_argument('-cores', type=int, help='Number of kernels for parallel processing', default=1)
-    parser.add_argument('-len_bins', type=int, help='Length of bins for parallel processing', default=50000)
+    
+    parser.add_argument('-len_bins', type=int, help='Length of bins for parallel processing, must be >0 and <reference length', default=50000)
     parser.add_argument('-delmin', type=int, help='Minimum deletion length', default=50)
     parser.add_argument('-delmax', type=int, help='Maximum deletion length', default=60)
     parser.add_argument('-insmin', type=int, help='Minimum insertion length', default=50)

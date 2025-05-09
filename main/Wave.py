@@ -1243,7 +1243,8 @@ def parse_args():
     parser.add_argument('-write', action='store_true', help='Write full results')
     parser.add_argument('-block_region_bed_url', type=str, help='local path of the block region BED file', default=None)
     parser.add_argument('-cores', type=int, help='Number of kernels for parallel processing', default=1)
-    parser.add_argument('-len_bins', type=int, help='Length of bins for parallel processing', default=50000)
+   
+    parser.add_argument('-len_bins', type=int, help='Length of bins for parallel processing, must be >0 and <reference length', default=50000)
     parser.add_argument('-delmin', type=int, help='Minimum deletion length', default=50)
     parser.add_argument('-delmax', type=int, help='Maximum deletion length', default=60)
     parser.add_argument('-insmin', type=int, help='Minimum insertion length', default=50)
@@ -1385,6 +1386,17 @@ def main():
     all_region_sv_array = np.sort(np.array(copy.deepcopy(list(all_positions))))
 
     del all_positions
+    
+    if args.len_bins <= 0:
+        raise ValueError(f"'len_bins' must be > 0, got {args.len_bins}")
+        sys.exit(1)  # 非0状态码表示错误退出
+    if args.len_bins > len(all_region_sv_array):
+        print(
+            f"ERROR: 'len_bins' ({args.len_bins}) > reference length ({len(all_region_sv_array)})",
+            file=sys.stderr
+        )
+        sys.exit(1)  # 非0状态码表示错误退出
+        
     # 计算能被 args.len_bins 整除的最大元素数量和余数
     number_seg, remainder = divmod(len(all_region_sv_array), int(args.len_bins))
 
