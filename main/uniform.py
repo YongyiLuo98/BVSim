@@ -114,7 +114,10 @@ def write_vcf(args, df, seqname, start_base, end_base):
         f.write('##INFO=<ID=DEL,Number=1,Type=String,Description="Deletion">\n')
         f.write('##INFO=<ID=INS,Number=1,Type=String,Description="Insertion">\n')
         f.write('##INFO=<ID=INV,Number=1,Type=String,Description="Inversion">\n')
-        
+        f.write('##INFO=<ID=DUP,Number=1,Type=String,Description="Duplication">\n')
+        # FILTER field (新增部分)
+        f.write('##FILTER=<ID=PASS,Description="All filters passed">\n')
+        f.write('##FILTER=<ID=.,Description="No filter applied">\n')  # 可选 
         # FORMAT field
         f.write('##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">\n')
         

@@ -1,0 +1,96 @@
+# hg38_simplerepeats
+
+# hg38
+
+wget https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/references/GRCh38/resources/hg38.simpleRepeat.bed.gz  
+wget https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/references/GRCh38/resources/hg38.simpleRepeat.bed.gz.tbi 
+
+zcat /disk18T3/project18/data/test_data/TGS/hg38/hg38.simpleRepeat.bed.gz | head -n 10  
+
+REF:
+wget https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fasta.gz.fai   
+/disk18T3/project18/data/test_data/TGS/hg38/AltReference_EEE_SV-Pop_1.fasta.gz.fai
+
+for i in {1..22}; do
+    awk -v OFS='\t' -v chr="chr$i" '$1 == chr {print $1, 0, $2}' /disk18T3/project18/data/test_data/TGS/hg38/AltReference_EEE_SV-Pop_1.fasta.gz.fai >> /disk18T3/project18/data/test_data/TGS/hg38/hg38_genome_chr.bed
+done
+
+
+
+# .txt file: /hg001/Telomere distance real/
+zcat /disk18T3/project18/data/test_data/TGS/hg38/hg38.simpleRepeat.bed.gz | awk 'BEGIN{OFS="\t"} {print $1, $2, $3}' > /disk18T3/project18/data/test_data/TGS/hg38/hg38_windows_TR.bed
+#merge overlapping intervals and remove duplicates
+bedtools sort -i /disk18T3/project18/data/test_data/TGS/hg38/hg38_windows_TR.bed | bedtools merge -i stdin | awk 'BEGIN{OFS="\t"} {$4="TR"; print}' | uniq > /disk18T3/project18/data/test_data/TGS/hg38/hg38_windows_TR_unique.bed
+#用制表符分隔
+bedtools subtract -a /disk18T3/project18/data/test_data/TGS/hg38/hg38_genome_chr.bed -b /disk18T3/project18/data/test_data/TGS/hg38/hg38_windows_TR_unique.bed | awk 'BEGIN{OFS="\t"} {$4="nonTR"; print}' > /disk18T3/project18/data/test_data/TGS/hg38/hg38_windows_nonTR.bed
+
+#merge two windows file
+cat /disk18T3/project18/data/test_data/TGS/hg38/hg38_windows_TR_unique.bed /disk18T3/project18/data/test_data/TGS/hg38/hg38_windows_nonTR.bed > /disk18T3/project18/data/test_data/TGS/hg38/hg38_windows_TR_nonTR.bed
+#Sort the merged file by chromosome and start position
+sort -k1,1 -k2,2n /disk18T3/project18/data/test_data/TGS/hg38/hg38_windows_TR_nonTR.bed > /disk18T3/project18/data/test_data/TGS/hg38/sorted_hg38_windows_TR_nonTR.bed
+
+
+可能要用循环来做
+samples=(
+    HG00731 HG00732 HG00512 HG00513 NA19238 NA19239 NA24385 HG03125 
+    NA12878 HG03486 HG02818 HG03065 HG03683 HG02011 HG03371 NA12329 
+    HG00171 NA18939 HG03732 HG00096 NA20847 HG03009 NA20509 HG00864 
+    HG01505 NA18534 NA19650 HG02587 HG01596 HG01114 NA19983 HG02492
+)
+
+
+
+# 对基因组文件进行排序（如果尚未排序）
+sort -k1,1 /disk18T3/project18/data/test_data/TGS/hg38/hg38_genome_chr.bed > /disk18T3/project18/data/test_data/TGS/hg38/hg38_genome_chr_sorted.bed
+
+for sample in "${samples[@]}"
+do
+  # 提取所需列并创建标记位置的文件
+  awk '{print $1"\t"$2"\t"$4}' /disk18T3/project18/data/test_data/TGS/HGSVC/${sample}.bed > /disk18T3/project18/data/test_data/TGS/hg38/HGSVC/${sample}_pos_labeled.bed
+  
+  # 对提取后的文件进行排序
+  sort -k1,1 -k2,2n /disk18T3/project18/data/test_data/TGS/hg38/HGSVC/${sample}_pos_labeled.bed > /disk18T3/project18/data/test_data/TGS/hg38/HGSVC/${sample}_pos_labeled_sorted.bed
+  
+  # 使用排序后的文件执行 join 命令，并通过 awk 处理输出
+  join -1 1 -2 1 /disk18T3/project18/data/test_data/TGS/hg38/HGSVC/${sample}_pos_labeled_sorted.bed /disk18T3/project18/data/test_data/TGS/hg38/hg38_genome_chr_sorted.bed | awk 'BEGIN{OFS="\t"} {$1=$1; print $1, $2, $3, $5}' > /disk18T3/project18/data/test_data/TGS/hg38/HGSVC/${sample}_tel_dist.bed
+done
+
+for sample in "${samples[@]}"
+do
+  # 提取所需列并创建标记位置的文件
+  awk '{print $1"\t"$2"\t"$4}' /disk18T3/project18/data/test_data/TGS/HGSVC/${sample}.bed > /disk18T3/project18/data/test_data/TGS/hg38/HGSVC/${sample}_pos_labeled.bed
+  
+  # 对提取后的文件进行排序
+  sort -k1,1 -k2,2n /disk18T3/project18/data/test_data/TGS/hg38/HGSVC/${sample}_pos_labeled.bed > /disk18T3/project18/data/test_data/TGS/hg38/HGSVC/${sample}_pos_labeled_sorted.bed
+  
+  # 使用排序后的文件执行 join 命令，并通过 awk 处理输出
+  join -1 1 -2 1 /disk18T3/project18/data/test_data/TGS/hg38/HGSVC/${sample}_pos_labeled_sorted.bed /disk18T3/project18/data/test_data/TGS/hg38/hg38_genome_chr_sorted.bed | awk 'BEGIN{OFS="\t"} {$1=$1; print $1, $2, $3, $5}' > /disk18T3/project18/data/test_data/TGS/hg38/HGSVC/${sample}_tel_dist.bed
+  
+  # 创建只有两列的新文件
+  awk 'BEGIN{OFS="\t"} {print $1, $2, $2+1}' /disk18T3/project18/data/test_data/TGS/hg38/HGSVC/${sample}_tel_dist.bed > /disk18T3/project18/data/test_data/TGS/hg38/HGSVC/${sample}_pos_labeled_2cols.bed
+  
+  # 执行 bedtools intersect 命令并处理输出
+  bedtools intersect -a /disk18T3/project18/data/test_data/TGS/hg38/HGSVC/${sample}_pos_labeled_2cols.bed -b /disk18T3/project18/data/test_data/TGS/hg38/sorted_hg38_windows_TR_nonTR.bed -loj | awk 'BEGIN{OFS="\t"} {print $1, $2, $7}' | sort -k1,1 -k2,2n > /disk18T3/project18/data/test_data/TGS/hg38/HGSVC/${sample}_pos_window.bed
+  
+  # 更新原始 *_tel_dist.bed 文件
+  sort -k1,1 -k2,2n /disk18T3/project18/data/test_data/TGS/hg38/HGSVC/${sample}_tel_dist.bed > /disk18T3/project18/data/test_data/TGS/hg38/HGSVC/${sample}_tel_dist_sorted.bed
+  paste /disk18T3/project18/data/test_data/TGS/hg38/HGSVC/${sample}_tel_dist_sorted.bed <(cut -f3 /disk18T3/project18/data/test_data/TGS/hg38/HGSVC/${sample}_pos_window.bed) > /disk18T3/project18/data/test_data/TGS/hg38/HGSVC/${sample}_tel_dist_update.bed
+
+  #join -t $'\t' -1 1 -2 1 /disk18T3/project18/data/test_data/TGS/hg38/${sample}_tel_dist_update.bed /disk18T3/project18/data/original_data/TGS/cell/hg38centromeres.bed > /disk18T3/project18/data/test_data/TGS/hg38/HGSVC/${sample}_tel_dist_centro.bed
+
+done
+
+# /disk18T3/project18/data/test_data/TGS/hg002/SV_Tier1_tel_dist_centro_update.bed
+python /disk18T3/project18/code/TGS/task01/CELL_TR_nonTR.py
+
+/disk18T3/project18/data/original_data/TGS/cell/hg38centromeres.bed
+
+#Centromere pos
+/disk18T3/project18/data/test_data/TGS/hs37d5/Centromere.bed
+/disk18T3/project18/data/test_data/TGS/hg002/SV_Tier1_tel_dist.bed
+/disk18T3/project18/data/test_data/TGS/hg38/AK1_tel_dist_update.bed
+
+
+# Run the join command with the sorted files
+join -t $'\t' -1 1 -2 1 /disk18T3/project18/data/test_data/TGS/hg38/AK1_tel_dist_update.bed /disk18T3/project18/data/original_data/TGS/cell/hg38centromeres.bed > /disk18T3/project18/data/test_data/TGS/hg38/AK1_tel_dist_centro.bed
+
