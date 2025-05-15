@@ -10,6 +10,7 @@
     - [Output Naming Conventions](#output)
     - [Write the Relative Positions of Simulated Variations](#write)
     - [User-defined Block Regions with No Variations](#block)
+  - [Exact Mode](#exact-mode)
   - [Uniform Mode](#uniform-mode)
   - [Complex SV Mode](#complex-sv-mode)
     - [Parameters for CSV Mode](#parameters-for-csv-mode)
@@ -37,37 +38,40 @@
 To get started with BVSim, follow these steps to install and run the simulator:
 
 ```sh
-# Create an envrionment called BVSim and install the dependencies
-conda create -n BVSim python=3.11 numpy pandas biopython scipy seaborn psutil
+# Create an envrionment called BVSim and install the dependencies from the provided environment.yml file
+# conda create -n BVSim python=3.11 numpy pandas biopython scipy seaborn psutil
+# conda activate BVSim
+# # Run the following to install pysam or use the latest guide
+# conda config --add channels defaults
+# conda config --add channels conda-forge
+# conda config --add channels bioconda
+# conda install pysam
+conda env create -f environment.yml
 conda activate BVSim
-# Run the following to install pysam or use the latest guide
-conda config --add channels defaults
-conda config --add channels conda-forge
-conda config --add channels bioconda
-conda install pysam
 # Installzation
 ## Clone the repository in your home path
-cd your_home_path
 git clone https://github.com/YongyiLuo98/BVSim.git
-## Navigate to the ~/BVSim/main directory and install the package
-pip install your_home_path/BVSim/main/.
+## Navigate to the ~/BVSim/ directory and install the package
+cd ~/BVSim/
+conda activate BVSim
+pip install -e .
 
-# Verify the installation in your home path
-cd your_home_path
-python -m BVSim --help
-python -m BVSim -h
+# Verify the installation
+conda activate BVSim
+bvsim --help
+bvsim -h
 
 ## Run a toy example with a specified reference in the cloned folder
 conda activate BVSim
-python -m BVSim -ref 'your_home_path/BVSim/empirical/sub_hg19_chr1.fasta' -seed 0 -rep 0 -write -snp 2000
+bvsim -ref 'your_home_path/BVSim/empirical/sub_hg19_chr1.fasta' -seed 0 -rep 0 -write -snp 2000
 ## If you prefer using the default reference, simply execute
-cd your_home_path
-python -m BVSim
+
+bvsim
 
 
 # Generate variations with specific parameters
 cd your_home_path
-python -m BVSim -seed 1 -rep 1 -snp 2000
+bvsim -seed 1 -rep 1 -snp 2000
 
 # To write out the relative positions, use the following command
 python your_home_path/BVSim/main/write_SV.py your_home_path/BVSim/save/ BV_1_con0_chr1_SVtable.csv BV_1_con0_chr1_tem_ins_dic.npy
@@ -78,7 +82,7 @@ echo -e "0\t1000\n3000\t4000" > block_intervals.bed
 
 # Run the simulator with block regions
 cd your_home_path
-python -m BVSim -seed 1 -rep 1 -write -snp 2000 -block_region_bed_url block_intervals.bed
+bvsim -seed 1 -rep 1 -write -snp 2000 -block_region_bed_url block_intervals.bed
 ```
 
 ## <a name="Installation"></a>Installation
@@ -109,20 +113,19 @@ pip install your_home_path/BVSim/main/.
 After installation, you can verify it from your home directory. Execute the following commands:
 ```bash
 cd
-python -m BVSim --help
-python -m BVSim -h
+bvsim --help
+bvsim -h
 ```
 Note: You can only call BVSim in the cloned repository directory, while the installation must take place in the BVSim/main/ directory.
 #### Toy Example (Uniform mode):
 ```bash
 conda activate BVSim
-python -m BVSim -ref 'your_home_path/BVSim/empirical/sub_hg19_chr1.fasta' -seed 0 -rep 0 -write -snp 2000
+bvsim -ref 'your_home_path/BVSim/empirical/sub_hg19_chr1.fasta' -seed 0 -rep 0 -write -snp 2000
 ```
 or you can use the default reference to test the installation by type the following in your home path. If you do not give a saving path, the outputs will go to "your_home_path\BVSim\save\".
 
 ```bash
-cd your_home_path
-python -m BVSim 
+bvsim 
 ```
 ## <a name="parameters"></a>Functions and Parameters
 
@@ -202,7 +205,7 @@ If you choose not to generate the relative positions during the initial simulati
 For example, you can execute:
 ```bash
 cd your_home_path
-python -m BVSim -seed 1 -rep 1 -snp 2000
+bvsim -seed 1 -rep 1 -snp 2000
 ```
 In this case you generated default number of elementary SVs and micro indels, as well as 20000 SNPs saved in the default directory with `BV_1_seq_chr1_SVtable.csv`, `BV_1_seq_chr1_tem_ins_dic.npy`.
 
@@ -221,9 +224,10 @@ The input of the '-block_region_bed_url' should be two columns of positions(star
 cd your_home_path
 echo -e "0\t1000\n3000\t4000" > block_intervals.bed
 # uniform.py
-cd your_home_path
-python -m BVSim -seed 1 -rep 1 -write -snp 2000 -block_region_bed_url block_intervals.bed
+bvsim -seed 1 -rep 1 -write -snp 2000 -block_region_bed_url block_intervals.bed
 ```
+### <a name="exact-mode"></a>Exact Mode
+Users can provide a variant table with target SVs with their length, positions and type. BVSim will simulate the variants with an non-overlapping feature. If some defined variations are overlapped, BVSim will sort them by start positions and discard the latter ones.
 
 ### <a name="uniform-mode"></a>Uniform Mode
 If you do not call any of the following parameters (-csv, -cores, -len_bins, -wave), the simulation will be generated one by one uniformly.
@@ -231,7 +235,7 @@ If you do not call any of the following parameters (-csv, -cores, -len_bins, -wa
 #### Toy Example (Uniform mode):
 ```bash
 conda activate BVSim
-python -m BVSim -ref 'hg19_chr1.fasta' -seed 0 -rep 0 -write -snp 2000
+bvsim -ref 'hg19_chr1.fasta' -seed 0 -rep 0 -write -snp 2000
 ```
 ### <a name="complex-sv-mode"></a>Complex SV Mode
 Add -csv to your command, 18 types of Complex Structure Variations can be generated.
@@ -256,8 +260,7 @@ Add -csv to your command, 18 types of Complex Structure Variations can be genera
 * ID18: Insertion with Deletion (INSdel)
 #### Toy Example (CSV mode):
 ```bash
-cd your_home_path
-python -m BVSim -ref 'your_home_path/BVSim/empirical/sub_hg19_chr1.fasta' -save your_saving_url -seed 1 -rep 1 -csv -write -snp 2000
+bvsim -ref 'your_home_path/BVSim/empirical/sub_hg19_chr1.fasta' -save your_saving_url -seed 1 -rep 1 -csv -write -snp 2000
 ```
 #### <a name="parameters-for-csv-mode"></a>Parameters for CSV Mode
 The lengths of the CSVs follow different Gaussian distributions with modifiable means (-mu) and standard deviations (-sigma).
@@ -282,8 +285,7 @@ Add -cores, -len_bins to your command, and write a .job file (task01.job) as fol
 
 source /opt/share/etc/miniconda3-py39.sh
 conda activate BVSim
-cd your_home_path
-python -m BVSim -ref your_home_path/hg19/hg19_chr21.fasta -save your_home_path/test_data/BVSim/task03/ -cores 5 -len_bins 500000 -rep 3 -snp 200 -snv_del 200 -snv_ins 200 -write
+bvsim -ref your_home_path/hg19/hg19_chr21.fasta -save your_home_path/test_data/BVSim/task03/ -cores 5 -len_bins 500000 -rep 3 -snp 200 -snv_del 200 -snv_ins 200 -write
 conda deactivate
 ```
 Submit the job file by:
@@ -354,8 +356,7 @@ To utilize this single BED file, users should call '-indel_input_bed' in the com
 
 source /opt/share/etc/miniconda3-py39.sh
 conda activate BVSim
-cd your_home_path
-python -m BVSim -ref your_home_path/hg19/hg19_chr21.fasta -save your_home_path/test_data/BVSim -seed 0 -rep 2 -cores 5 -len_bins 500000 -wave -indel_input_bed your_home_path/hg002/chr21_SV_Tier1_2.bed -mode empirical -snp 2000 -snv_del 1000 -snv_ins 100 -write
+bvsim -ref your_home_path/hg19/hg19_chr21.fasta -save your_home_path/test_data/BVSim -seed 0 -rep 2 -cores 5 -len_bins 500000 -wave -indel_input_bed your_home_path/hg002/chr21_SV_Tier1_2.bed -mode empirical -snp 2000 -snv_del 1000 -snv_ins 100 -write
 conda deactivate
 ```
 Submit the job file by:
@@ -435,9 +436,8 @@ We provide an example of a Job submission script using SLURM for running the Wav
 
 source /opt/share/etc/miniconda3-py39.sh
 conda activate BVSim
-cd /home/project18/
 
-python -m BVSim -ref your_home_path/hg38/chr21.fasta \
+bvsim -ref your_home_path/hg38/chr21.fasta \
 -save your_home_path/BVSim/task01/ -seed 0 -rep 1 -cores 5 \
 -len_bins 500000 -wave -mode empirical -snp 2000 -snv_del 1000 -snv_ins 100 \
 -write -file_list NA19240_chr21 HG02818_chr21 NA19434_chr21
@@ -509,8 +509,7 @@ In this example, we set the seed to `0` and use a replication ID of `4`. The job
 
 source /opt/share/etc/miniconda3-py39.sh
 conda activate BVSim
-cd your_home_path
-python -m BVSim -ref your_home_path/hg19/hg19_chr21.fasta -save your_home_path/test_data/BVSim -seed 0 -rep 4 -cores 5 -len_bins 500000 -wave_region -indel_input_bed your_home_path/hg002/chr21_SV_Tier1.bed -mode empirical -snp 10000 -snv_del 100 -snv_ins 100 -write -p_del_region 0.6 -p_ins_region 0.6 -region_bed_url your_home_path/hg002/chr21_TR_unique.bed
+bvsim -ref your_home_path/hg19/hg19_chr21.fasta -save your_home_path/test_data/BVSim -seed 0 -rep 4 -cores 5 -len_bins 500000 -wave_region -indel_input_bed your_home_path/hg002/chr21_SV_Tier1.bed -mode empirical -snp 10000 -snv_del 100 -snv_ins 100 -write -p_del_region 0.6 -p_ins_region 0.6 -region_bed_url your_home_path/hg002/chr21_TR_unique.bed
 conda deactivate
 ```
 
@@ -548,8 +547,7 @@ In the following example, we use 5 cores and 500,000 as length of the intervals.
 
 source /opt/share/etc/miniconda3-py39.sh
 conda activate BVSim
-cd your_home_path
-python -m BVSim -ref your_home_path/hg19/hg19_chr21.fasta -save your_home_path/test_data/BVSim/ -seed 0 -rep 0 -cores 5 -len_bins 500000 -hg19 chr21 -mode probability -snp 1000 -sv_trans 0 -dup 99 -sv_inver 7 -sv_del 280 -sv_ins 202 -snv_del 0 -snv_ins 0 -p_del_region 0.810 -p_ins_region 0.828 -region_bed_url /home/project18/data/test_data/TGS/hg002/chr21_TR_unique.bed -delmin 50 -delmax 2964912 -insmin 50 -insmax 187524
+bvsim -ref your_home_path/hg19/hg19_chr21.fasta -save your_home_path/test_data/BVSim/ -seed 0 -rep 0 -cores 5 -len_bins 500000 -hg19 chr21 -mode probability -snp 1000 -sv_trans 0 -dup 99 -sv_inver 7 -sv_del 280 -sv_ins 202 -snv_del 0 -snv_ins 0 -p_del_region 0.810 -p_ins_region 0.828 -region_bed_url /home/project18/data/test_data/TGS/hg002/chr21_TR_unique.bed -delmin 50 -delmax 2964912 -insmin 50 -insmax 187524
 conda deactivate
 ```
 
@@ -557,7 +555,7 @@ conda deactivate
 ## <a name="uninstallation"></a>Uninstallation for Updates
 To update to the latest version of BVSim, you can uninstall and delete the cloned files. Then, try to clone from the new repository and install again.
 ```bash
-cd your_home_path
+conda activate BVSim
 pip uninstall BVSim
 ```
 ## <a name="workflow"></a>Workflow of BVSim
