@@ -3,12 +3,16 @@ import subprocess
 import os
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='BVSim')
+    # Use ArgumentDefaultsHelpFormatter to automatically show defaults
+    parser = argparse.ArgumentParser(
+        description='BVSim version 1.0.0',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
     parser.add_argument('-ref', type=str, help='Input reference local path', default=os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', 'empirical')+ '/sub_hg19_chr1.fasta')
     parser.add_argument('-save', type=str, help='local path for saving', default=os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', 'save')+ '/')
-    parser.add_argument('-seed', type=int, help='Seed for random number generator', default=999)
-    parser.add_argument('-times', type=int, help='Number of times', default=10)
-    parser.add_argument('-rep', type=int, help='Replication ID', default=99)
+    parser.add_argument('-seed', type=int, help='Global seed for random number generator (non-negative integer)', default=999)
+    parser.add_argument('-times', type=int, help='Maximum sampling times (positive integer)', default=10)
+    parser.add_argument('-rep', type=int, help='Replication ID (non-negative integer for naming the files)', default=99)
     
     parser.add_argument('-seq_index', type=int, default=0, help='Index of sequence to use (0-based). Default: 0 (first sequence)')
     
@@ -18,11 +22,11 @@ def parse_args():
     
     # 删除原来的 --vcf_input 参数
     # 保留其他VCF-specific arguments
-    parser.add_argument('-chr', type=str, help='Target chromosome (e.g., chr21)')
-    parser.add_argument('-select', type=str, help='Selection criteria (e.g., "AF>0.001", "SVLEN>=100")')
-    parser.add_argument('-min_len', type=int, default=50, help='Minimum SV length (bp)')
+    parser.add_argument('-chr', type=str, help='Target chromosome name to filter from VCF file (e.g., chr21) (required for VC mode)')
+    parser.add_argument('-select', type=str, help='Selection criteria (e.g., "AF>0.001", "SVLEN>=100") (required for VC mode)')
+    parser.add_argument('-min_len', type=int, default=50, help='Minimum SV length (bp)(required for VC mode)')
     parser.add_argument('-sv_types', nargs='+', default=["DEL", "INS", "DUP", "INV"], 
-                       help='SV types to include')
+                       help='SV types to include (required for VC mode)')
     
     # 变异生成模式选择
     
@@ -41,9 +45,9 @@ def parse_args():
     parser.add_argument('-snv_del', type=float, help='SNV deletion number or probability', default=5)
     parser.add_argument('-snv_ins', type=float, help='SNV insertion number or probability', default=5)
     parser.add_argument('-notblockN', action='store_true', help='Do not Block N positions')
-    parser.add_argument('-write', action='store_true', help='Write full results')
+    parser.add_argument('-write', action='store_true', help='Write relative positions')
     parser.add_argument('-block_region_bed_url', '--block_region_bed_url', type=str, help='local path of the block region BED file', default=None)
-    parser.add_argument('-cores', type=int, help='Number of kernels for parallel processing', default=1)
+    parser.add_argument('-cores', type=int, help='Number of kernels for parallel processing (required for uniform-parallel/wave/wave-region mode to set up parallel computing)', default=1)
     
     parser.add_argument('-len_bins', type=int, help='Length of bins for parallel processing, must be >0 and <reference length', default=50000)
     parser.add_argument('-delmin', type=int, help='Minimum deletion length', default=50)
@@ -136,17 +140,17 @@ def parse_args():
     
     parser.add_argument('-wave', action='store_true', help='Run Wave.py script')
     parser.add_argument('-mode', type=str, help='Mode for calculating probabilities', default='probability')
-    parser.add_argument('-sum', action='store_true', help='total indel SV equals sum of the input bed')
-    parser.add_argument('-indel_input_bed', type=str, help='Input BED file for indels',default=None)
+    parser.add_argument('-sum', action='store_true', help='total indel SV equals sum of the input (single sample) or mean of the input (multiple samples)')
+    parser.add_argument('-indel_input_bed', type=str, help='Input BED file for indels (required if input single sample for wave or wave-region mode)',default=None)
     parser.add_argument('-file_list', type=str, nargs='+', default=['NA19240_chr21', 'HG02818_chr21', 'NA19434_chr21'],
-                        help='List of sample files (default: NA19240_chr21.bed, HG02818_chr21.bed, NA19434_chr21.bed in empirical folder)')
+                        help='List of sample files (default: NA19240_chr21.bed, HG02818_chr21.bed, NA19434_chr21.bed in empirical folder) (required if multiple samples for wave or wave-region mode)')
 
     parser.add_argument('-wave_region', action='store_true', help='Run Wave_TR.py script')
-    parser.add_argument('-p_del_region', type=float, help='Probability of SV DEL in the user-defined region for deletion', default=0.5)
-    parser.add_argument('-p_ins_region',  type=float, help='Probability of SV INS in the user-defined region for insertion', default=0.5)
-    parser.add_argument('-region_bed_url', type=str, help='local path of the BED file for the user-defined region', default=None)
-    parser.add_argument('-hg38', type=str, help='Chromosome name', required=False)
-    parser.add_argument('-hg19', type=str, help='Chromosome name', required=False)
+    parser.add_argument('-p_del_region', type=float, help='Probability of SV DEL in the user-defined region for deletion (required for wave-region mode)', default=0.5)
+    parser.add_argument('-p_ins_region',  type=float, help='Probability of SV INS in the user-defined region for insertion (required for wave-region mode)', default=0.5)
+    parser.add_argument('-region_bed_url', type=str, help='local path of the BED file for the user-defined region (required for wave-region mode)', default=None)
+    parser.add_argument('-hg38', type=str, help='Chromosome name (required for hg38 mode)', required=False)
+    parser.add_argument('-hg19', type=str, help='Chromosome name (required for hg19 mode)', required=False)
     return parser.parse_args()
     
 

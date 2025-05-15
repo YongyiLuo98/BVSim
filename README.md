@@ -39,13 +39,6 @@ To get started with BVSim, follow these steps to install and run the simulator:
 
 ```sh
 # Create an envrionment called BVSim and install the dependencies from the provided environment.yml file
-# conda create -n BVSim python=3.11 numpy pandas biopython scipy seaborn psutil
-# conda activate BVSim
-# # Run the following to install pysam or use the latest guide
-# conda config --add channels defaults
-# conda config --add channels conda-forge
-# conda config --add channels bioconda
-# conda install pysam
 conda env create -f environment.yml
 conda activate BVSim
 # Installzation
@@ -70,18 +63,16 @@ bvsim
 
 
 # Generate variations with specific parameters
-cd your_home_path
 bvsim -seed 1 -rep 1 -snp 2000
 
 # To write out the relative positions, use the following command
-python your_home_path/BVSim/main/write_SV.py your_home_path/BVSim/save/ BV_1_con0_chr1_SVtable.csv BV_1_con0_chr1_tem_ins_dic.npy
+python ~/BVSim/main/write_SV.py your_home_path/BVSim/save/ BV_1_con0_chr1_SVtable.csv BV_1_con0_chr1_tem_ins_dic.npy
 
 # Create a block intervals BED file
 cd your_home_path
 echo -e "0\t1000\n3000\t4000" > block_intervals.bed
 
 # Run the simulator with block regions
-cd your_home_path
 bvsim -seed 1 -rep 1 -write -snp 2000 -block_region_bed_url block_intervals.bed
 ```
 
@@ -107,12 +98,13 @@ git clone https://github.com/YongyiLuo98/BVSim.git
 ### Navigate to the Main Directory and Install the Package
 Next, navigate to the .../BVSim/main/ directory to install the package:
 ```bash
-pip install your_home_path/BVSim/main/.
+cd ~/BVSim/
+conda activate BVSim
+pip install -e .
 ```
 ### Verify the Installation
 After installation, you can verify it from your home directory. Execute the following commands:
 ```bash
-cd
 bvsim --help
 bvsim -h
 ```
