@@ -497,29 +497,15 @@ def ID1_TanInvDup_process(unblock_region_sv, True_TanInvDup_number, times, real_
     other_sites = list(set(unblock_region_sv)-set(all_selected_InvDup_SV))
     #InvDuplication: copy and paste
     for remain_index2 in all_selected_InvDup_SV:##others### questions
-        #print(remain_index2)
-        #number of copies
-        #InvDup_num_index = np.random.multinomial(n=1, pvals=number_sv_InvDup)
-        #InvDup_num = int(list(InvDup_num_index).index(1))+1
-        
-        # length of InvDuplication
-        #tem_copied_base_index = (np.random.multinomial(n=1, pvals=copied_base_sv_prob))[0]
-        #tem_copied_base = int(copied_base_sv_base[int(tem_copied_base_index)])
+
         tem_copied_base = np.random.choice(gaussian_ID1)
-        ##if all bases that are copied are in unblock_region_sv, then no resampling is needed
-        ## number of the common elements of two sets
-        # if len(set(range(remain_index2-tem_copied_base+1,remain_index2+1))&set(unblock_region_sv)) < tem_copied_base:
-        #     repeat_falg_tran_ins4 = 1
 
         circular_count_InvDup = 0
         circular_count_InvDup_break = 0
         while len(set(range(remain_index2-tem_copied_base+1,remain_index2+1))&set(unblock_region_sv)) < tem_copied_base:
-            # select the possibile copied length 
-            #sites that do note have general insertions
+           
 
             remain_index2 = sample(other_sites,1)[0]
-            #tem_copied_base_index = (np.random.multinomial(n=1, pvals=copied_base_sv_prob))[0]
-            #tem_copied_base = int(copied_base_sv_base[int(tem_copied_base_index)])
             tem_copied_base = np.random.choice(gaussian_ID1)
             circular_count_InvDup = circular_count_InvDup + 1
             if circular_count_InvDup>times:
@@ -529,7 +515,6 @@ def ID1_TanInvDup_process(unblock_region_sv, True_TanInvDup_number, times, real_
             else:
                 circular_count_InvDup_break = 0
 
-        #ratio_re_InvDup:neighbor InvDuplication (right after the copied area)
         if not circular_count_InvDup_break:
             circular_count_InvDup=0
             #! Remove the copied region from unblock_region_sv (关键修改点)
@@ -2122,6 +2107,7 @@ def ID18_INSdel_process(SV_table, VCF_table, unblock_region_sv, SV_loop,CSV_loop
 
 def long_del_process(SV_table, VCF_table, unblock_region_sv, SV_loop, VCF_loop,tem_seq_post, sv_del, condition_dist_sv_del, len_SV_del, len_seg_refine, times, ll_c, chr_id):
     #print('Deletion:'+str(sv_del))
+    print('SV DEL:' + str(sv_del))
     for del_num in range(0, sv_del):
         ### Sample the first long deletion
         # sample a start point in the unblock region for deletion
@@ -2159,7 +2145,7 @@ def long_del_process(SV_table, VCF_table, unblock_region_sv, SV_loop, VCF_loop,t
         # if sample a del start and length that is not overlapped with translocation(s)
         # update needed pos collections and prepare for the second sampling of long deletions
         if not circular_count_del_break:
-            print('SV DEL:' + str(sv_del))
+            # print('SV DEL:' + str(sv_del))
             # initialize the counting of resampling times
             circular_count_del = 0
             # block the part deleted in the first long del
@@ -3166,12 +3152,59 @@ def main():
     True_ID17_number = args.num_ID17_csv
     num_insdel_csv = args.num_ID18_csv
     
-    def generate_gaussian(mu, sigma, num_samples=1000, scale_factor=100):
-        gaussian = np.random.normal(mu, sigma, num_samples)
-        gaussian = np.round(gaussian / scale_factor) * scale_factor
-        gaussian = [math.ceil(abs(x)) for x in gaussian]
-        return gaussian
+    # def generate_gaussian(mu, sigma, num_samples=1000, scale_factor=100):
+    #     gaussian = np.random.normal(mu, sigma, num_samples)
+    #     gaussian = np.round(gaussian / scale_factor) * scale_factor
+    #     gaussian = [math.ceil(abs(x)) for x in gaussian]
+    #     return gaussian
+    def validate_and_replace_params(mu, sigma):
+        """验证并替换无效的mu和sigma参数（使用print替代warnings）"""
+        default_mu, default_sigma = 1000, 100
+        original_mu, original_sigma = mu, sigma
+        
+        # 参数验证
+        if mu <= 0:
+            print(f"WARNING: Invalid mu value ({original_mu}), replaced with default {default_mu}")
+            mu = default_mu
+        
+        if sigma <= 0:
+            print(f"WARNING: Invalid sigma value ({original_sigma}), replaced with default {default_sigma}")
+            sigma = default_sigma
+        
+        return mu, sigma
 
+    def generate_gaussian(mu, sigma, num_samples=1000, scale_factor=100, min_length=50):
+        """生成符合要求的高斯分布整数列表"""
+        # 验证并替换参数
+        mu, sigma = validate_and_replace_params(mu, sigma)
+        
+        # 生成数据并处理
+        attempt = 0
+        max_attempts = 3  # 最大尝试次数
+        replacement_value = 100  # 替换值
+        
+        while attempt < max_attempts:
+            # 生成一批样本
+            samples = np.random.normal(mu, sigma, num_samples)
+            processed = [
+                max(min_length, math.ceil(abs(np.round(x / scale_factor) * scale_factor)))
+                for x in samples
+            ]
+            
+            # 检查是否全部 ≥50
+            if all(x >= min_length for x in processed):
+                return processed
+            
+            print(f"WARNING: Regenerating due to outliers (attempt {attempt+1}/{max_attempts})")
+            attempt += 1
+        
+        # 保底方案：强制替换所有 <50 的值
+        final_samples = [x if x >= min_length else replacement_value for x in processed]
+        invalid_count = len([x for x in final_samples if x == replacement_value])
+    
+        print(f"WARNING: {invalid_count} samples were <{min_length} and replaced with {replacement_value}")
+        return final_samples
+    
     mu_sigma_pairs = [
         (args.mu_ID1, args.sigma_ID1), 
         (args.mu_ID2, args.sigma_ID2), 
