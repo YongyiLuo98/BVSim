@@ -133,6 +133,7 @@ The BVSim package provides several functions (modes) and parameters for simulati
 | `-seed` | int | Global seed for random number generator (non-negative integer) | 999 |
 | `-times` | int | Maximum sampling times (positive integer) | 10 |
 | `-rep` | int | Replication ID (non-negative integer for naming the files) | 99 |
+| `-seq_index` | int | Index of sequence to use (0-based), must be within the range of provided FASTA file. Default: 0 (first sequence) | 0 |
 | `-sv_trans` | int | Number of trans SV | 5 |
 | `-sv_inver` | int | Number of inversion SV | 5 |
 | `-sv_dup` | int | Number of tandem duplication | 5 |
