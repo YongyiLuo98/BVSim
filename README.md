@@ -126,13 +126,13 @@ Five modes: uniform, uniform parallel, csv, wave, wave_region
 ### <a name="shared-parameters"></a>Shared Parameters
 The BVSim package provides several functions (modes) and parameters for simulating genetic variations. Here is a table that introduces all the functions and different parameters:
 
-| Parameter | Type | Description | Default |
+| Parameter | Type | Description | Default | 
 | --- | --- | --- | --- |
 | `-ref` | str | Input reference file | '.../BVSim/empirical/sub_hg19_chr1.fasta' |
 | `-save` | str | Saving path | .../BVSim/save/ |
-| `-seed` | int | Seed for random number generator | 999 |
-| `-times` | int | Number of times | 10 |
-| `-rep` | int | Replication ID | 5 |
+| `-seed` | int | Global seed for random number generator (non-negative integer) | 999 |
+| `-times` | int | Maximum sampling times (positive integer) | 10 |
+| `-rep` | int | Replication ID (non-negative integer for naming the files) | 99 |
 | `-sv_trans` | int | Number of trans SV | 5 |
 | `-sv_inver` | int | Number of inversion SV | 5 |
 | `-sv_dup` | int | Number of tandem duplication | 5 |
