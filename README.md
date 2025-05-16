@@ -62,13 +62,13 @@ bvsim -h
 
 ## Run a toy example with a the modifiable YAML parameters in the cloned folder
 conda activate BVSim
-bvsim -config ~/BVSim/code/custom_config.yaml -sv_dup 20 \
+bvsim -config ~/BVSim/code/custom_config.yaml -uniform -sv_dup 20 \
 
 ## If you prefer using the default reference, simply execute (run with default configuration file: ~/BVSim/code/bvsim_config.yaml)
-bvsim
+bvsim -uniform
 
 # Generate variations with specific parameters (input parameters will overwrite the default settings)
-bvsim -seed 1 -rep 1 -snp 2000
+bvsim -uniform -seed 1 -rep 1 -snp 2000
 
 # To write out the relative positions, use the following command
 python ~/BVSim/main/write_SV.py ~/BVSim/save/ BV_1_con0_chr1_SVtable.csv BV_1_con0_chr1_tem_ins_dic.npy
@@ -78,7 +78,7 @@ cd your_home_path
 echo -e "0\t1000\n3000\t4000" > block_intervals.bed
 
 # Run the simulator with block regions
-bvsim -seed 1 -rep 1 -write -snp 2000 -block_region_bed_url block_intervals.bed
+bvsim -uniform -seed 1 -rep 1 -write -snp 2000 -block_region_bed_url block_intervals.bed
 ```
 
 ## <a name="Installation"></a>Installation
@@ -115,7 +115,7 @@ Note: You can only call BVSim in the cloned repository directory, while the inst
 #### Toy Example (Uniform mode):
 ```bash
 conda activate BVSim
-bvsim -ref 'your_home_path/BVSim/empirical/sub_hg19_chr1.fasta' -seed 0 -rep 0 -write -snp 2000
+bvsim -uniform -ref 'your_home_path/BVSim/empirical/sub_hg19_chr1.fasta' -seed 0 -rep 0 -write -snp 2000
 ```
 or you can use the default reference to test the installation by type the following in your home path. If you do not give a saving path, the outputs will go to "your_home_path\BVSim\save\".
 
@@ -251,8 +251,8 @@ The input of the '-block_region_bed_url' should be two columns of positions(star
 ```bash
 cd ~
 echo -e "0\t1000\n3000\t4000" > block_intervals.bed
-# uniform.py
-bvsim -seed 1 -rep 1 -write -snp 2000 -block_region_bed_url block_intervals.bed
+# uniform mode
+bvsim -uniform -seed 1 -rep 1 -write -snp 2000 -block_region_bed_url block_intervals.bed
 ```
 
 ### <a name="human-genome"></a>Mimic Mode
@@ -586,7 +586,7 @@ If you call "-uniform", the simulation will be generated one by one uniformly.
 #### Toy Example (Uniform mode):
 ```bash
 conda activate BVSim
-bvsim -ref 'hg19_chr1.fasta' -uniform -seed 0 -rep 0 -write -snp 2000
+bvsim -uniform -ref 'hg19_chr1.fasta' -seed 0 -rep 0 -write -snp 2000
 ```
 
 ### <a name="uniform-parallel-mode"></a>Uniform Parallel Mode
