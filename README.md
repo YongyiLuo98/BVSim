@@ -11,11 +11,13 @@
     - [Output Naming Conventions](#output)
     - [Write the Relative Positions of Simulated Variations](#write)
     - [User-defined Block Regions with No Variations](#block)
+  - [Mimic Mode](#human-genome)
+    - [Parameters for Mimic Mode](#parameters-for-mimic-mode)
   - [Exact Mode](#exact-mode)
-  - [VCF Mode](#vcf-mode)
-  - [Uniform Mode](#uniform-mode)
+   - [Parameters for Exact Mode](#parameters-for-exact-mode)
   - [Complex SV Mode](#complex-sv-mode)
     - [Parameters for CSV Mode](#parameters-for-csv-mode)
+  - [Uniform Mode](#uniform-mode)
   - [Uniform Parallel Mode](#uniform-parallel-mode)
     - [Parameters for Uniform parallel Mode](#parameters-for-uniform-parallel-mode)
   - [Wave Mode](#wave-mode)
@@ -30,7 +32,8 @@
     - [Extract User-defined Regions (e.g. TR region) and Generate the BED File](#step-1-extract-tr-regions)
     - [Job Submission for Single Sample (BED Format)](#job-submission-for-wave-region-mode-single-sample)
     - [Parameters for Wave Region Mode](#parameters-for-wave-region-mode)
-  - [Human Genome](#human-genome)
+  - [VCF Mode for Preprocessing](#vcf-mode)
+    - [Parameters for VCF Preprocessing](#parameters-for-VCF-mode)
 - [Uninstallation for Updates](#uninstallation)
 - [Workflow of BVSim](#workflow)
 - [Definitions of SVs Simulated by BVSim](#definitions)
@@ -141,7 +144,7 @@ bvsim
 | `extract_TR_region_hg19.sh` | hg19 TR region extraction |
 | `extract_TR_region_hg38.sh` | hg38 TR region extraction |
 | `extract_sv_to_bed.sh` | Convert SV calls to BED format for visualization |
-| `terminal_commands` | General Linux command snippets for data processing |
+| `terminal_commands` | Linux command files for data processing |
 #### Python Modules
 | File | Description |
 |------|-------------|
@@ -150,8 +153,8 @@ bvsim
 #### Configuration Files
 | File | Description |
 |------|-------------|
-| `bvsim_config.yaml` | 主配置文件 - 控制模拟核心参数 |
-| `custom_config.yaml` | 用户自定义配置模板 |
+| `bvsim_config.yaml` | Default parameters stored in YAML configuration file |
+| `custom_config.yaml` | User-configurable parameters stored in YAML configuration file |
 
 ## <a name="parameters"></a>Functions and Parameters
 
@@ -251,9 +254,51 @@ echo -e "0\t1000\n3000\t4000" > block_intervals.bed
 # uniform.py
 bvsim -seed 1 -rep 1 -write -snp 2000 -block_region_bed_url block_intervals.bed
 ```
+
+### <a name="human-genome"></a>Mimic Mode
+For the human genome, we derive the length distributions of SVs from HG002 and the 15 representative samples. For SNPs, we embed a learned substitution transition matrix from the dbSNP database. With a user-specified bin size, BVSim learns the distribution of SV positions per interval. It can model the SVs per interval as a multinomial distribution parameterized by the observed frequencies in HG002 (GRCh37/hg19 as reference) or sample the SV numbers per interval from a Gaussian distribution with the mean and standard deviation computed across the 15 samples (GRCh38/hg38 as reference). Calling ‘-hg19’ or ‘-hg38’ and specifying the chromosome name can activate the above procedures automatically for the human genome.
+
+In the following example, we use 5 cores and 500,000 as length of the intervals. The reference is chromosome 21 of hg19, so we call "-hg19 chr21" in the command line to utilize the default procedure. In addition, we generated 1,000 SNPs, 99 duplications, 7 inversions, 280 deletions, and 202 insertions. The ratio of deletions/insertions in the tandem repeat regions with respect to the total number is 0.810/0.828. We also set the minimum and maximum lengths of some SVs.
+
+#### <a name="parameters-for-Mimic-mode"></a>Parameters for Mimic Mode
+The table below summarizes the parameters available for Wave region mode:
+| Parameter | Type | Description | Default |
+| --- | --- | --- | --- |
+| `-mimic` | T/F | Realistic genome simulation (requires -hg38/-hg19) | False |
+| `-hg19` | Chromosome name (e.g. chr1-chr22) for hg19 genome |  None |
+| `-hg38` | Chromosome name (e.g. chr1-chr22) for hg38 genome | None |
+| `-cell` | T/F | Use ONLY the Cell dataset list (hg38). If neither -cell nor -hgsvc is specified, defaults to merged CELL+HGSVC (deduplicated). | False |
+| `-hgsvc` | T/F | Use ONLY the HGSVC dataset list (hg38). If neither -cell nor -hgsvc is specified, defaults to merged CELL+HGSVC (deduplicated). | False |
+| `-cores` | int | Number of kernels for parallel processing (positive integer, required for uniform-parallel/wave/wave-region mode to set up parallel computing) | 1 |
+| `-len_bins` | int | Length of bins for parallel processing, must be positive integer and smaller than reference length (required for uniform-parallel/wave/wave-region mode to set up parallel computing) | 50000 |
+| `-mode` | str | Mode for calculating probabilities (empirical/probability)| 'probability' |
+| `-sum` | bool | Total indel SV equals sum of the input (single sample) or mean of the input (multiple samples) | False |
+| `-indel_input_bed` | str | Input BED file for indels (required if input single sample for wave or wave-region mode) | None |
+| `-file_list` | str | List of sample files (e.g. NA19240_chr21.bed, HG02818_chr21.bed, NA19434_chr21.bed in empirical folder) (required if multiple samples for wave or wave-region mode) | None |
+| `-p_del_region` | float | Probability of SV DEL (between 0 and 1) in the user-defined region for deletion (required for wave-region mode)| 0.5 |
+| `-p_ins_region` | float | Probability of SV INS (between 0 and 1) in the user-defined region for insertion (required for wave-region mode)| 0.5 |
+| `-region_bed_url` | str | Path of the BED file for the user-defined region (required for wave-region mode)| None |
+
+#### Toy example (-hg19)
+```bash
+#!/bin/bash
+#SBATCH -J 0_hg19_chr21
+#SBATCH -N 1 -c 5
+#SBATCH --output=output.txt
+#SBATCH --error=err.txt
+
+source /opt/share/etc/miniconda3-py39.sh
+conda activate BVSim
+bvsim -mimic \
+-ref your_home_path/hg19/hg19_chr21.fasta -save your_home_path/test_data/BVSim/ -seed 0 -rep 0 -cores 5 -len_bins 500000 -hg19 chr21 \
+-mode probability -snp 1000 -sv_trans 0 -dup 99 -sv_inver 7 -sv_del 280 -sv_ins 202 -snv_del 0 -snv_ins 0 -p_del_region 0.810 -p_ins_region 0.828 \
+-region_bed_url /home/project18/data/test_data/TGS/hg002/chr21_TR_unique.bed -delmin 50 -delmax 2964912 -insmin 50 -insmax 187524
+conda deactivate
+```
+
 ### <a name="exact-mode"></a>Exact Mode
 Users can provide a variant table with target SVs with their length, positions and type. BVSim will simulate the variants with an non-overlapping feature. If some defined variations are overlapped, BVSim will sort them by start positions and discard the latter ones.
-
+#### <a name="parameters-for-Exact-mode"></a>Parameters for Exact Mode
 | Parameter | Type | Description | Default |
 | --- | --- | --- | --- |
 | `-exact` | T/F | Generate exact variants from input table | False |
@@ -305,60 +350,7 @@ See the complete file in the ~/BVSim/empirical/BV_22_seq_1_SVtable_full.csv.
 | 25    | 0         | Small_Ins      | 163605         | 163605       | 1      | -1        | -1      | -1         | -1                  | 164378          | 164378        | -1               | -1             |
 | 26    | 0         | Substitution   | 8865           | 8865         | 1      | -1        | -1      | -1         | -1                  | 8864            | 8864          | -1               | -1             |
 
-### <a name="vcf-mode"></a>VCF Mode
-| Parameter | Type | Description | Default |
-| --- | --- | --- | --- |
-| `-vcf` | T/F | Run VCF.py script | False |
-| `-vcf_file` | str | Input VCF file path (required for VCF mode) | None |
-| `-chr` | str | Target chromosome name to filter from VCF file (e.g., chr21) (required for VC mode) | None |
-| `-select` | str | Selection criteria (e.g., "AF>0.001", "SVLEN>=100") (required for VC mode) | None |
-| `-min_len` | str | Minimum SV length (bp) (positice integer, required for VC mode) | 50 |
-| `-sv_type` | str | SV types to include (required for VC mode) | ["DEL", "INS", "DUP", "INV"] |
 
-#### Key Features
-This module processes VCF/VCF.gz files to filter structural variants (SVs) and generate analysis-ready CSV files. Core capabilities:
-- **Multi-format Support**: Handles both compressed (.vcf.gz) and uncompressed VCF
-- **Flexible Filtering**:
-  - Chromosome selection (`-chr`)
-  - SV type filtering (`-sv_types`, default: DEL/INS/DUP/INV)
-  - Length threshold (`-min_len`, default: 50bp)
-  - Custom INFO field filters (`-select`, e.g., "AF>0.001")
-- **Standardized Output**: Generates CSV with key fields which are the same as the Exact mode's input: 
-  Index,Index_con,SV_type,Original_start,Original_end,Len_SV,New_start,...
-  
-#### Output Naming Convention
-Files follow this structured naming pattern:
-```
-  <vcf_file>_<chr>_<select>_min<min_len>_<sv_type>.csv
-```
-#### Toy example (VCF mode)
-```bash
-#!/bin/bash
-#SBATCH -J VCF
-#SBATCH -N 1 -c 1
-#SBATCH --output=VCF_out.txt
-#SBATCH --error=VCF_err.txt
-
-source /opt/share/etc/miniconda3-py39.sh
-conda activate bio
-bvsim -vcf \
--vcf_file gnomad.v4.1.sv.sites.vcf.gz \
--save ~/VCF/ \
--select "FREQ_HET_fin>0.001" -min_len 50 -sv_types DEL INS -chr chr21
-conda deactivate
-```
-Input​​: gnomad.v4.1.sv.sites.vcf.gz with parameters: -chr 21 -select "FREQ_HET>0.001" -min_len 50 -sv_types DEL INS
-​​Output​​: gnomad.v4.1_chr21_FREQ_HET_0.001_min50_DEL_INS.csv
-
-Users need to pay attention that after filtering, there are overlapping SVs in the output. So, you may need to select your target SV and delete the overlapped ones.
-### <a name="uniform-mode"></a>Uniform Mode
-If you do not call any of the following parameters (-csv, -cores, -len_bins, -wave), the simulation will be generated one by one uniformly.
-
-#### Toy Example (Uniform mode):
-```bash
-conda activate BVSim
-bvsim -ref 'hg19_chr1.fasta' -seed 0 -rep 0 -write -snp 2000
-```
 ### <a name="complex-sv-mode"></a>Complex SV Mode
 Add -csv to your command, 18 types of Complex Structure Variations can be generated.
 
@@ -395,8 +387,19 @@ The lengths of the CSVs follow different Gaussian distributions with modifiable 
 | `-mu_ID1 to -mu_ID18` | int | Mean of Gaussian distribution of CSV length (integer, larger than 100)| 1000 |
 | `-sigma_ID1 to -sigma_ID18` | int | Standard deviation of Gaussian distribution of CSV length (non-negative integer)| 100 |
 
+### <a name="uniform-mode"></a>Uniform Mode
+If you call "-uniform", the simulation will be generated one by one uniformly.
+| Parameter | Type | Description | Default |
+| --- | --- | --- | --- |
+| `-uniform` | T/F | Uniform distribution mode | False |
+#### Toy Example (Uniform mode):
+```bash
+conda activate BVSim
+bvsim -ref 'hg19_chr1.fasta' -uniform -seed 0 -rep 0 -write -snp 2000
+```
+
 ### <a name="uniform-parallel-mode"></a>Uniform Parallel Mode
-Add -cores, -len_bins to your command, and write a .job file (task01.job) as follows (-c 5 means 5 cores, should be the same as -cores 5), parallel simulation will be allowed.
+Add "-uniform" and specify "-cores" and "-len_bins" to your command, and write a .job file (task01.job) as follows (-c 5 means 5 cores, should be the same as -cores 5), parallel simulation will be allowed.
 
 #### Toy Example (Uniform-parallel mode): task01.job
 ```bash
@@ -408,7 +411,8 @@ Add -cores, -len_bins to your command, and write a .job file (task01.job) as fol
 
 source /opt/share/etc/miniconda3-py39.sh
 conda activate BVSim
-bvsim -ref your_home_path/hg19/hg19_chr21.fasta -save your_home_path/test_data/BVSim/task03/ -cores 5 -len_bins 500000 -rep 3 -snp 200 -snv_del 200 -snv_ins 200 -write
+bvsim -uniform -ref ~/hg19_chr21.fasta -save ~/BVSim/task03/ \
+-cores 5 -len_bins 500000 -rep 3 -snp 200 -snv_del 200 -snv_ins 200 -write
 conda deactivate
 ```
 Submit the job file by:
@@ -419,6 +423,7 @@ sbatch task01.job
 
 | Parameter | Type | Description | Default |
 | --- | --- | --- | --- |
+| `-uniform` | T/F | Uniform distribution mode | False |
 | `-cores` | int | Number of kernels for parallel processing (positive integer, required for uniform-parallel/wave/wave-region mode to set up parallel computing) | 1 |
 | `-len_bins` | int | Length of bins for parallel processing, must be positive integer and smaller than reference length (required for uniform-parallel/wave/wave-region mode to set up parallel computing) | 50000 |
 
@@ -479,7 +484,9 @@ To utilize this single BED file, users should call '-indel_input_bed' in the com
 
 source /opt/share/etc/miniconda3-py39.sh
 conda activate BVSim
-bvsim -ref your_home_path/hg19/hg19_chr21.fasta -save your_home_path/test_data/BVSim -seed 0 -rep 2 -cores 5 -len_bins 500000 -wave -indel_input_bed your_home_path/hg002/chr21_SV_Tier1_2.bed -mode empirical -snp 2000 -snv_del 1000 -snv_ins 100 -write
+bvsim -wave \
+-ref ~/hg19_chr21.fasta -save your_home_path/test_data/BVSim -seed 0 -rep 2 -cores 5 -len_bins 500000 \
+-indel_input_bed ~/BVSim/empirical/chr21_SV_Tier1_2.bed -mode empirical -snp 2000 -snv_del 1000 -snv_ins 100 -write
 conda deactivate
 ```
 Submit the job file by:
@@ -655,23 +662,54 @@ The table below summarizes the parameters available for Wave region mode:
 | `-p_ins_region` | float | Probability of SV INS (between 0 and 1) in the user-defined region for insertion (required for wave-region mode)| 0.5 |
 | `-region_bed_url` | str | Path of the BED file for the user-defined region (required for wave-region mode)| None |
 
-### <a name="human-genome"></a>Human Genome
-For the human genome, we derive the length distributions of SVs from HG002 and the 15 representative samples. For SNPs, we embed a learned substitution transition matrix from the dbSNP database. With a user-specified bin size, BVSim learns the distribution of SV positions per interval. It can model the SVs per interval as a multinomial distribution parameterized by the observed frequencies in HG002 (GRCh37/hg19 as reference) or sample the SV numbers per interval from a Gaussian distribution with the mean and standard deviation computed across the 15 samples (GRCh38/hg38 as reference). Calling ‘-hg19’ or ‘-hg38’ and specifying the chromosome name can activate the above procedures automatically for the human genome.
+### <a name="vcf-mode"></a>VCF Mode for Pre-processing
 
-In the following example, we use 5 cores and 500,000 as length of the intervals. The reference is chromosome 21 of hg19, so we call "-hg19 chr21" in the command line to utilize the default procedure. In addition, we generated 1,000 SNPs, 99 duplications, 7 inversions, 280 deletions, and 202 insertions. The ratio of deletions/insertions in the tandem repeat regions with respect to the total number is 0.810/0.828. We also set the minimum and maximum lengths of some SVs.
-#### Toy example (-hg19)
+#### <a name="parameters-for-VCF-mode"></a>Parameters for VCF Preprocessing
+| Parameter | Type | Description | Default |
+| --- | --- | --- | --- |
+| `-vcf` | T/F | Run VCF.py script | False |
+| `-vcf_file` | str | Input VCF file path (required for VCF mode) | None |
+| `-chr` | str | Target chromosome name to filter from VCF file (e.g., chr21) (required for VC mode) | None |
+| `-select` | str | Selection criteria (e.g., "AF>0.001", "SVLEN>=100") (required for VC mode) | None |
+| `-min_len` | str | Minimum SV length (bp) (positice integer, required for VC mode) | 50 |
+| `-sv_type` | str | SV types to include (required for VC mode) | ["DEL", "INS", "DUP", "INV"] |
+
+#### Key Features
+This module processes VCF/VCF.gz files to filter structural variants (SVs) and generate analysis-ready CSV files. Core capabilities:
+- **Multi-format Support**: Handles both compressed (.vcf.gz) and uncompressed VCF
+- **Flexible Filtering**:
+  - Chromosome selection (`-chr`)
+  - SV type filtering (`-sv_types`, default: DEL/INS/DUP/INV)
+  - Length threshold (`-min_len`, default: 50bp)
+  - Custom INFO field filters (`-select`, e.g., "AF>0.001")
+- **Standardized Output**: Generates CSV with key fields which are the same as the Exact mode's input: 
+  Index,Index_con,SV_type,Original_start,Original_end,Len_SV,New_start,...
+  
+#### Output Naming Convention
+Files follow this structured naming pattern:
+```
+  <vcf_file>_<chr>_<select>_min<min_len>_<sv_type>.csv
+```
+#### Toy example (VCF mode)
 ```bash
 #!/bin/bash
-#SBATCH -J 0_hg19_chr21
-#SBATCH -N 1 -c 5
-#SBATCH --output=output.txt
-#SBATCH --error=err.txt
+#SBATCH -J VCF
+#SBATCH -N 1 -c 1
+#SBATCH --output=VCF_out.txt
+#SBATCH --error=VCF_err.txt
 
 source /opt/share/etc/miniconda3-py39.sh
-conda activate BVSim
-bvsim -ref your_home_path/hg19/hg19_chr21.fasta -save your_home_path/test_data/BVSim/ -seed 0 -rep 0 -cores 5 -len_bins 500000 -hg19 chr21 -mode probability -snp 1000 -sv_trans 0 -dup 99 -sv_inver 7 -sv_del 280 -sv_ins 202 -snv_del 0 -snv_ins 0 -p_del_region 0.810 -p_ins_region 0.828 -region_bed_url /home/project18/data/test_data/TGS/hg002/chr21_TR_unique.bed -delmin 50 -delmax 2964912 -insmin 50 -insmax 187524
+conda activate bio
+bvsim -vcf \
+-vcf_file gnomad.v4.1.sv.sites.vcf.gz \
+-save ~/VCF/ \
+-select "FREQ_HET_fin>0.001" -min_len 50 -sv_types DEL INS -chr chr21
 conda deactivate
 ```
+Input​​: gnomad.v4.1.sv.sites.vcf.gz with parameters: -chr 21 -select "FREQ_HET>0.001" -min_len 50 -sv_types DEL INS
+​​Output​​: gnomad.v4.1_chr21_FREQ_HET_0.001_min50_DEL_INS.csv
+
+Users need to pay attention that after filtering, there are overlapping SVs in the output. So, you may need to select your target SV and delete the overlapped ones.
 
 
 ## <a name="uninstallation"></a>Uninstallation for Updates
