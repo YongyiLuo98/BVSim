@@ -95,8 +95,8 @@ Next, you need to clone the BVSim repository to your local machine. Execute the 
 cd ~
 git clone https://github.com/YongyiLuo98/BVSim.git
 ```
-### Navigate to the Main Directory and Install the Package
-Next, navigate to the .../BVSim/main/ directory to install the package:
+### Navigate to the BVSim Directory and Install the Package
+Next, navigate to the .../BVSim/ directory to install the package:
 ```bash
 cd ~/BVSim/
 conda activate BVSim
