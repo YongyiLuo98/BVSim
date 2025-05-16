@@ -246,6 +246,7 @@ We require the following format for the input '-variant_table'. A translocation 
 
 This table's format is identical as the output of other modes (except for VCF mode). The relative positions (last four columns) are not required for 'exact mode'. So, users can utilize the randome generations' output and input some empirical SVs they want. Please pay attention, if your input has overlapped variants, the processing time will be longer. Please ensure your input does not contain any overlapped variants for smooth running.
 
+See the complete file in the ~/BVSim/empirical/BV_22_seq_1_SVtable_full.csv.
 | Index | Index_con | SV_type        | Original_start | Original_end | Len_SV | New_start | New_end | New_len_SV | Balanced Trans Flag | relative start1 | relative end1 | relative start2 | relative end2 |
 |-------|-----------|----------------|----------------|--------------|--------|-----------|---------|------------|---------------------|-----------------|---------------|------------------|----------------|
 | 0     | 0         | Translocation  | 12612          | 12804        | 193    | 70068     | 70139   | 72         | 1                   | 12611           | 12682         | 70179            | 70371          |
@@ -270,8 +271,6 @@ This table's format is identical as the output of other modes (except for VCF mo
 | 26    | 0         | Substitution   | 8865           | 8865         | 1      | -1        | -1      | -1         | -1                  | 8864            | 8864          | -1               | -1             |
 
 ### <a name="vcf-mode"></a>VCF Mode
-
-
 | Parameter | Type | Description | Default |
 | --- | --- | --- | --- |
 | `-vcf` | T/F | Run VCF.py script | False |
@@ -280,6 +279,23 @@ This table's format is identical as the output of other modes (except for VCF mo
 | `-select` | str | Selection criteria (e.g., "AF>0.001", "SVLEN>=100") (required for VC mode) | None |
 | `-min_len` | str | Minimum SV length (bp) (positice integer, required for VC mode) | 50 |
 | `-sv_type` | str | SV types to include (required for VC mode) | ["DEL", "INS", "DUP", "INV"] |
+
+#### Key Features
+This module processes VCF/VCF.gz files to filter structural variants (SVs) and generate analysis-ready CSV files. Core capabilities:
+- **Multi-format Support**: Handles both compressed (.vcf.gz) and uncompressed VCF
+- **Flexible Filtering**:
+  - Chromosome selection (`-chr`)
+  - SV type filtering (`-sv_types`, default: DEL/INS/DUP/INV)
+  - Length threshold (`-min_len`, default: 50bp)
+  - Custom INFO field filters (`-select`, e.g., "AF>0.001")
+- **Standardized Output**: Generates CSV with key fields which are the same as the Exact mode's input: 
+  Index,Index_con,SV_type,Original_start,Original_end,Len_SV,New_start,...
+  
+#### Output Naming Convention
+Files follow this structured naming pattern:
+```
+  <vcf_file>_<chr>_<select>_min<min_len>_<sv_type>.csv
+```
 
 ```bash
 #!/bin/bash
@@ -296,6 +312,9 @@ bvsim -vcf \
 -select "FREQ_HET_fin>0.001" -min_len 50 -sv_types DEL INS -chr chr21
 conda deactivate
 ```
+Input​​: gnomad.v4.1.sv.sites.vcf.gz with parameters: -chr 21 -select "FREQ_HET>0.001" -min_len 50 -sv_types DEL INS
+​​Output​​: gnomad.v4.1_chr21_FREQ_HET_0.001_min50_DEL_INS.csv
+
 Users need to pay attention that after filtering, there are overlapping SVs in the output. So, you may need to select your target SV and delete the overlapped ones.
 ### <a name="uniform-mode"></a>Uniform Mode
 If you do not call any of the following parameters (-csv, -cores, -len_bins, -wave), the simulation will be generated one by one uniformly.
