@@ -35,7 +35,7 @@
 - [VCF Mode for Preprocessing](#vcf-mode)
   - [Parameters for VCF Preprocessing](#parameters-for-VCF-mode)
 - [Uninstallation for Updates](#uninstallation)
-- [Workflow of BVSim](#workflow)
+- [Workflow of BVSim's Sequence Simulation](#workflow)
 - [Definitions of SVs Simulated by BVSim](#definitions)
 
 ## <a name="getting-started"></a>Getting Started
@@ -722,7 +722,7 @@ To update to the latest version of BVSim, you can uninstall and delete the clone
 conda activate BVSim
 pip uninstall bvsim
 ```
-## <a name="workflow"></a>Workflow of BVSim
+## <a name="workflow"></a>Workflow of BVSim's Sequence Simulation
 The following figure illustrates the workflow of BVSim, encapsulated within a dashed box, and demonstrates how the output files interact with read simulators, the alignment tool Minimap2, Samtools, and evaluation tools.
 ![Workflow of BVSim](flow_chart_pipline.png)
 ## <a name="definitions"></a>Definitions of SVs Simulated by BVSim
