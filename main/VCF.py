@@ -9,7 +9,8 @@ from typing import Optional, Tuple, List, Dict, Union
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Filter SVs from VCF and convert to CSV format")
-    parser.add_argument("-vcf", required=True, help="Input VCF/VCF.GZ file path")
+    # VCF-specific arguments
+    parser.add_argument('-vcf_file', type=str, help='Run VCF.py script with input VCF file path')
     parser.add_argument("-chr", required=True, help="Target chromosome (e.g., 21)")
     parser.add_argument("-select", help="Selection criteria (e.g., 'AF>0.001', 'SVLEN>=100')")
     parser.add_argument("-min_len", type=int, default=50, help="Minimum SV length (bp)")
@@ -239,8 +240,8 @@ def main():
     
     total_start = time.time()
     try:
-        print(f"Reading VCF file: {args.vcf}")
-        variants = read_vcf_file(args.vcf)
+        print(f"Reading VCF file: {args.vcf_file}")
+        variants = read_vcf_file(args.vcf_file)
         print(f"Loaded {len(variants)} variants before filtering")
         
         filtered = filter_variants(variants, args.chr, args.min_len, args.sv_types, select_cond)
@@ -255,7 +256,7 @@ def main():
         
         # Generate output filename
         out_name = generate_output_filename(
-            args.vcf, 
+            args.vcf_file, 
             args.chr, 
             args.select, 
             args.min_len, 

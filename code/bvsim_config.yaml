@@ -1,0 +1,135 @@
+# BVSim Configuration File
+# Version: 1.0.0
+
+# General parameters
+
+# All paths are based on the project root directory (BVSim/)
+ref: "empirical/sub_hg19_chr1.fasta" 
+save: "save/"  # 项目根目录下的save文件夹
+seed: 999  # Random seed
+times: 10  # Maximum sampling times
+rep: 99  # Replication ID
+seq_index: 0  # Sequence index (0-based)
+cores: 1  # Number of cores for parallel processing
+len_bins: 50000  # Length of bins for parallel processing
+notblockN: false  # Block N positions
+write: false  # Write relative positions
+block_region_bed_url: null  # Block region BED file path
+
+# Variant generation parameters
+
+# Simple variant counts
+sv_trans: 5  # Translocations
+sv_inver: 5  # Inversions
+sv_dup: 5  # Duplications
+sv_del: 5  # Deletions
+sv_ins: 5  # Insertions
+snp: 5  # SNVs (count or probability)
+snv_del: 5  # SNV deletions
+snv_ins: 5  # SNV insertions
+
+# Length ranges
+delmin: 50  # Minimum deletion length
+delmax: 60  # Maximum deletion length
+insmin: 50  # Minimum insertion length
+insmax: 450  # Maximum insertion length
+dupmin: 50  # Minimum duplication length
+dupmax: 450  # Maximum duplication length
+invmin: 50  # Minimum inversion length
+invmax: 450  # Maximum inversion length
+transmin: 50  # Minimum translocation length
+transmax: 450  # Maximum translocation length
+
+# CSV mode parameters
+csv: false
+csv_num: 0  # Number for each type
+csv_total_num: 0  # Total number with empirical weights
+
+# CSV type counts
+num_ID1_csv: 5
+num_ID2_csv: 5
+num_ID3_csv: 5
+num_ID4_csv: 5
+num_ID5_csv: 5
+num_ID6_csv: 5
+num_ID7_csv: 5
+num_ID8_csv: 5
+num_ID9_csv: 5
+num_ID10_csv: 5
+num_ID11_csv: 5
+num_ID12_csv: 5
+num_ID13_csv: 5
+num_ID14_csv: 5
+num_ID15_csv: 5
+num_ID16_csv: 5
+num_ID17_csv: 5
+num_ID18_csv: 5
+
+# Length distributions
+mu_ID1: 1000
+sigma_ID1: 100
+mu_ID2: 1000
+sigma_ID2: 100
+mu_ID3: 1000
+sigma_ID3: 100
+mu_ID4: 1000
+sigma_ID4: 100
+mu_ID5: 1000
+sigma_ID5: 100
+mu_ID6: 1000
+sigma_ID6: 100
+mu_ID7: 1000
+sigma_ID7: 100
+mu_ID8: 1000
+sigma_ID8: 100
+mu_ID9: 1000
+sigma_ID9: 100
+mu_ID10: 1000
+sigma_ID10: 100
+mu_ID11: 1000
+sigma_ID11: 100
+mu_ID12: 1000
+sigma_ID12: 100
+mu_ID13: 1000
+sigma_ID13: 100
+mu_ID14: 1000
+sigma_ID14: 100
+mu_ID15: 1000
+sigma_ID15: 100
+mu_ID16: 1000
+sigma_ID16: 100
+mu_ID17: 1000
+sigma_ID17: 100
+mu_ID18: 1000
+sigma_ID18: 100
+
+# VCF mode parameters
+vcf: false
+vcf_file: null  # Path to VCF file
+chr: null  # Target chromosome
+select: null  # Selection criteria
+min_len: 50  # Minimum SV length
+sv_types: ["DEL", "INS", "DUP", "INV"]  # SV types to include
+
+# Exact mode parameters
+exact: false
+variant_table: null  # Path to variant table
+validate_only: false  # Only validate input
+
+# Wave mode parameters
+wave: false
+mode: "probability"  # Calculation mode
+sum: false  # Sum/mean of input
+indel_input_bed: null  # Input BED for indels
+file_list: ["NA19240_chr21", "HG02818_chr21", "NA19434_chr21"]  # Sample files
+
+# Wave region parameters
+wave_region: false
+p_del_region: 0.5  # Probability of DEL in region
+p_ins_region: 0.5  # Probability of INS in region
+region_bed_url: null  # Region BED file
+
+# Genome-specific parameters
+
+hg38: null  # Chromosome name for hg38
+hg19: null  # Chromosome name for hg19

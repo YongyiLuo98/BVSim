@@ -133,15 +133,15 @@ The BVSim package provides several functions (modes) and parameters for simulati
 | `-seed` | int | Global seed for random number generator (non-negative integer) | 999 |
 | `-times` | int | Maximum sampling times (positive integer) | 10 |
 | `-rep` | int | Replication ID (non-negative integer for naming the files) | 99 |
-| `-seq_index` | int | Index of sequence to use (0-based), must be within the range of provided FASTA file. Default: 0 (first sequence) | 0 |
-| `-sv_trans` | int | Number of trans SV | 5 |
-| `-sv_inver` | int | Number of inversion SV | 5 |
-| `-sv_dup` | int | Number of tandem duplication | 5 |
-| `-sv_del` | int | Number of SV deletion | 5 |
-| `-sv_ins` | int | Number of SV insertion | 5 |
-| `-snp` | float | SNV number or probability | 5 |
-| `-snv_del` | float | SNV deletion number or probability | 5 |
-| `-snv_ins` | float | SNV insertion number or probability | 5 |
+| `-seq_index` | int | Index of sequence to use (0-based), must be an integer within the range of provided FASTA file. Default: 0 (first sequence) | 0 |
+| `-sv_trans` | int | Number of trans SV (non-negative integer) | 5 |
+| `-sv_inver` | int | Number of inversion SV (non-negative integer) | 5 |
+| `-sv_dup` | int | Number of tandem duplication (non-negative integer) | 5 |
+| `-sv_del` | int | Number of SV deletion (non-negative integer) | 5 |
+| `-sv_ins` | int | Number of SV insertion (non-negative integer) | 5 |
+| `-snp` | float | SNV number (non-negative integer) or probability (between 0 and 1) | 5 |
+| `-snv_del` | float | SNV deletion number (non-negative integer) or probability (between 0 and 1) | 5 |
+| `-snv_ins` | float | SNV insertion number (non-negative integer) or probability (between 0 and 1) | 5 |
 | `-notblockN` | bool | Do not Block N positions | False |
 | `-write` | bool | Write full results | False |
 | `-delmin` | int | Minimum deletion length | 50 |
@@ -522,8 +522,8 @@ The table below summarizes the parameters available for Wave region mode:
 | `-indel_input_bed` | str | Input single BED file | None |
 | `-file_list` | str | Input list of multiple BED files | None |
 | `-wave_region` | bool | Run Wave_TR.py script | False |
-| `-p_del_region` | float | Probability of SV DEL in the user-defined region for deletion | 0.5 |
-| `-p_ins_region` | float | Probability of SV INS in the user-defined region for insertion | 0.5 |
+| `-p_del_region` | float | Probability of SV DEL (between 0 and 1) in the user-defined region for deletion | 0.5 |
+| `-p_ins_region` | float | Probability of SV INS (between 0 and 1) in the user-defined region for insertion | 0.5 |
 | `-region_bed_url` | str | Path of the BED file for the user-defined region | 'your_home_path/hg002/chr21_TR_unique.bed' |
 
 ### <a name="human-genome"></a>Human Genome

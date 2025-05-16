@@ -1,13 +1,61 @@
 import argparse
 import subprocess
 import os
+import yaml  # Add this import
+from argparse import Namespace
+import sys
+
+# def load_yaml_config(config_path):
+#     """Load configuration from YAML file"""
+#     with open(config_path, 'r') as f:
+#         config = yaml.safe_load(f)
+#     return config
+
+# def merge_configs(cli_args, yaml_config):
+#     """Merge YAML config with command-line arguments"""
+#     args_dict = vars(cli_args)
+    
+#     # Flatten the nested YAML structure
+#     flat_config = {}
+#     for section, section_values in yaml_config.items():
+#         if isinstance(section_values, dict):
+#             for key, value in section_values.items():
+#                 flat_config[key] = value
+#         else:
+#             flat_config[section] = section_values
+    
+#     # Update CLI args with YAML config
+#     for key, value in flat_config.items():
+#         # Only overwrite if:
+#         # 1. The key exists in CLI args
+#         # 2. The value is not None (from YAML)
+#         # 3. Not a mode flag (like csv, wave, etc.)
+#         if (key in args_dict and 
+#             value is not None and 
+#             not key.endswith('_enabled')):
+#             args_dict[key] = value
+    
+#     return Namespace(**args_dict)
 
 def parse_args():
+    # Phase 1: Parsing only -config parameters
+    initial_parser = argparse.ArgumentParser(add_help=False)
+    initial_parser.add_argument(
+        '-config', 
+        type=str,
+        default=os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', 'code') + '/bvsim_config.yaml'
+    )
+    config_args, remaining_argv = initial_parser.parse_known_args()
+    
+    print(f"Stage1 remaining argv: {remaining_argv}")
+    
     # Use ArgumentDefaultsHelpFormatter to automatically show defaults
     parser = argparse.ArgumentParser(
         description='BVSim version 1.0.0',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
+    # Add config file argument
+    parser.add_argument('-config', type=str, help='Path to YAML configuration file', default=os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', 'code')+ '/bvsim_config.yaml')
     parser.add_argument('-ref', type=str, help='Input reference local path', default=os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', 'empirical')+ '/sub_hg19_chr1.fasta')
     parser.add_argument('-save', type=str, help='local path for saving', default=os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', 'save')+ '/')
     parser.add_argument('-seed', type=int, help='Global seed for random number generator (non-negative integer)', default=999)
@@ -18,10 +66,8 @@ def parse_args():
     
     
     # VCF-specific arguments
-    parser.add_argument('-vcf', type=str, help='Run VCF.py script with input VCF file path')
-    
-    # 删除原来的 --vcf_input 参数
-    # 保留其他VCF-specific arguments
+    parser.add_argument('-vcf', action='store_true', help='Run csv.py script')
+    parser.add_argument('-vcf_file', type=str, help='Run VCF.py script with input VCF file path')
     parser.add_argument('-chr', type=str, help='Target chromosome name to filter from VCF file (e.g., chr21) (required for VC mode)')
     parser.add_argument('-select', type=str, help='Selection criteria (e.g., "AF>0.001", "SVLEN>=100") (required for VC mode)')
     parser.add_argument('-min_len', type=int, default=50, help='Minimum SV length (bp)(required for VC mode)')
@@ -32,126 +78,221 @@ def parse_args():
     
     parser.add_argument('-exact', action='store_true', help='Generate exact variants from input table')
     parser.add_argument('-variant_table', type=str, help='Path to variant table CSV/TSV file (required for exact mode)')
-     # 验证参数
     parser.add_argument('-validate_only', action='store_true',
                       help='Only validate input without generating variants')
     
-    parser.add_argument('-sv_trans', type=int, help='Number of trans SV', default=5)
-    parser.add_argument('-sv_inver', type=int, help='Number of inversion SV', default=5)
-    parser.add_argument('-sv_dup', type=int, help='True duplication number', default=5)
-    parser.add_argument('-sv_del', type=int, help='Number of deletion SV', default=5)
-    parser.add_argument('-sv_ins', type=int, help='True insertion number', default=5)
-    parser.add_argument('-snp', type=float, help='SNV number or probability', default=5)
-    parser.add_argument('-snv_del', type=float, help='SNV deletion number or probability', default=5)
-    parser.add_argument('-snv_ins', type=float, help='SNV insertion number or probability', default=5)
+    parser.add_argument('-sv_trans', type=int, help='Number of trans SV (non-negative integer)', default=5)
+    parser.add_argument('-sv_inver', type=int, help='Number of inversion SV (non-negative integer)', default=5)
+    parser.add_argument('-sv_dup', type=int, help='True duplication number (non-negative integer)', default=5)
+    parser.add_argument('-sv_del', type=int, help='Number of deletion SV (non-negative integer)', default=5)
+    parser.add_argument('-sv_ins', type=int, help='True insertion number (non-negative integer)', default=5)
+    parser.add_argument('-snp', type=float, help='SNV number (non-negative integer) or probability (between 0 and 1)', default=5)
+    parser.add_argument('-snv_del', type=float, help='SNV deletion number (non-negative integer) or probability (between 0 and 1)', default=5)
+    parser.add_argument('-snv_ins', type=float, help='SNV insertion number (non-negative integer) or probability (between 0 and 1)', default=5)
     parser.add_argument('-notblockN', action='store_true', help='Do not Block N positions')
     parser.add_argument('-write', action='store_true', help='Write relative positions')
     parser.add_argument('-block_region_bed_url', '--block_region_bed_url', type=str, help='local path of the block region BED file', default=None)
     parser.add_argument('-cores', type=int, help='Number of kernels for parallel processing (required for uniform-parallel/wave/wave-region mode to set up parallel computing)', default=1)
     
     parser.add_argument('-len_bins', type=int, help='Length of bins for parallel processing, must be >0 and <reference length', default=50000)
-    parser.add_argument('-delmin', type=int, help='Minimum deletion length', default=50)
-    parser.add_argument('-delmax', type=int, help='Maximum deletion length', default=60)
-    parser.add_argument('-insmin', type=int, help='Minimum insertion length', default=50)
-    parser.add_argument('-insmax', type=int, help='Maximum insertion length', default=450)
-    parser.add_argument('-dupmin', type=int, help='Minimum duplication length', default=50)
-    parser.add_argument('-dupmax', type=int, help='Maximum duplication length', default=450)
-    parser.add_argument('-invmin', type=int, help='Minimum inversion length', default=50)
-    parser.add_argument('-invmax', type=int, help='Maximum inversion length', default=450)
-    parser.add_argument('-transmin', type=int, help='Minimum translocation length', default=50)
-    parser.add_argument('-transmax', type=int, help='Maximum translocation length', default=450) 
+    parser.add_argument('-delmin', type=int, help='Minimum deletion length (integer, not smaller than 50)', default=50)
+    parser.add_argument('-delmax', type=int, help='Maximum deletion length (integer, larger than delmin)', default=60)
+    parser.add_argument('-insmin', type=int, help='Minimum insertion length (integer, not smaller than 50)', default=50)
+    parser.add_argument('-insmax', type=int, help='Maximum insertion length (integer, larger than insmin)', default=450)
+    parser.add_argument('-dupmin', type=int, help='Minimum duplication length (integer, not smaller than 50)', default=50)
+    parser.add_argument('-dupmax', type=int, help='Maximum duplication length (integer, larger than dupmin)', default=450)
+    parser.add_argument('-invmin', type=int, help='Minimum inversion length (integer, not smaller than 50)', default=50)
+    parser.add_argument('-invmax', type=int, help='Maximum inversion length (integer, larger than invmin)', default=450)
+    parser.add_argument('-transmin', type=int, help='Minimum translocation length (integer, not smaller than 50)', default=50)
+    parser.add_argument('-transmax', type=int, help='Maximum translocation length (integer, larger than transmin)', default=450) 
     parser.add_argument('-csv', action='store_true', help='Run csv.py script')
     #CSV
-    parser.add_argument('-csv_num', type=int, help='Number for each type of CSV, superior to -csv_total_num', default=0)
-    parser.add_argument('-csv_total_num', type=int, help='Total number for CSV, assign number of each type by empirical weights', default=0)
-    parser.add_argument('-num_ID1_csv', type=int, help='Number of ID1 (TanInvDup)', default=5)
-    parser.add_argument('-num_ID2_csv', type=int, help='Number of ID2 (DisInvDup)', default=5)
-    parser.add_argument('-num_ID3_csv', type=int, help='Number of ID3 (dispersed duplications)', default=5)
-    parser.add_argument('-num_ID4_csv', type=int, help='Number of ID4 (DelInv+InvDel)', default=5)
-    parser.add_argument('-num_ID5_csv', type=int, help='Number of ID5 (DEL+ DisInvDup)', default=5)
-    parser.add_argument('-num_ID6_csv', type=int, help='Number of ID6 (DEL+ DisDup)', default=5)
-    parser.add_argument('-num_ID7_csv', type=int, help='Number of ID7 (TanDup+DEL)', default=5)
-    parser.add_argument('-num_ID8_csv', type=int, help='Number of ID8 (TanInvDup+DEL)', default=5)
-    parser.add_argument('-num_ID9_csv', type=int, help='Number of ID9 (TanDup + DEL + INV)', default=5)
-    parser.add_argument('-num_ID10_csv', type=int, help='Number of ID10 (TanInvDup + DEL + INV)', default=5)
+    parser.add_argument('-csv_num', type=int, help='Number for each type of CSV, superior to -csv_total_num (non-negative integer)', default=0)
+    parser.add_argument('-csv_total_num', type=int, help='Total number for CSV, assign number of each type by empirical weights (non-negative integer)', default=0)
+    parser.add_argument('-num_ID1_csv', type=int, help='Number of ID1 (TanInvDup) (non-negative integer)', default=5)
+    parser.add_argument('-num_ID2_csv', type=int, help='Number of ID2 (DisInvDup) (non-negative integer)', default=5)
+    parser.add_argument('-num_ID3_csv', type=int, help='Number of ID3 (dispersed duplications) (non-negative integer)', default=5)
+    parser.add_argument('-num_ID4_csv', type=int, help='Number of ID4 (DelInv+InvDel) (non-negative integer)', default=5)
+    parser.add_argument('-num_ID5_csv', type=int, help='Number of ID5 (DEL+ DisInvDup) (non-negative integer)', default=5)
+    parser.add_argument('-num_ID6_csv', type=int, help='Number of ID6 (DEL+ DisDup) (non-negative integer)', default=5)
+    parser.add_argument('-num_ID7_csv', type=int, help='Number of ID7 (TanDup+DEL) (non-negative integer)', default=5)
+    parser.add_argument('-num_ID8_csv', type=int, help='Number of ID8 (TanInvDup+DEL) (non-negative integer)', default=5)
+    parser.add_argument('-num_ID9_csv', type=int, help='Number of ID9 (TanDup + DEL + INV) (non-negative integer)', default=5)
+    parser.add_argument('-num_ID10_csv', type=int, help='Number of ID10 (TanInvDup + DEL + INV) (non-negative integer)', default=5)
     #ID11-18
-    parser.add_argument('-num_ID11_csv', type=int, help='Number of ID11: paired-Deletion Inversion (delInvdel)', default=5)
-    parser.add_argument('-num_ID12_csv', type=int, help='Number of ID12: Inversion with 5 Flanking Duplication (dupInv)', default=5)
-    parser.add_argument('-num_ID13_csv', type=int, help='Number of ID13: Inversion with 3 Flanking Duplication (Invdup)', default=5)
-    parser.add_argument('-num_ID14_csv', type=int, help='Number of ID14: Paired-duplication inversion (dupInvdup)', default=5)
-    parser.add_argument('-num_ID15_csv', type=int, help='Number of ID15: Inversion with 5 Flanking Duplication and 3 Flanking Deletion (dupInvdel)', default=5)
-    parser.add_argument('-num_ID16_csv', type=int, help='Number of ID16: Inversion with 5 Flanking Deletion and 3 Flanking Duplication (delInvdup)', default=5)
-    parser.add_argument('-num_ID17_csv', type=int, help='Number of ID17: Inverted Duplication with Flanking Triplication (dupTRIPdup-INV) ', default=5)
-    parser.add_argument('-num_ID18_csv', type=int, help='Number of ID18: Insertion with Deletion (INSdel)', default=5)
+    parser.add_argument('-num_ID11_csv', type=int, help='Number of ID11: paired-Deletion Inversion (delInvdel) (non-negative integer)', default=5)
+    parser.add_argument('-num_ID12_csv', type=int, help='Number of ID12: Inversion with 5 Flanking Duplication (dupInv) (non-negative integer)', default=5)
+    parser.add_argument('-num_ID13_csv', type=int, help='Number of ID13: Inversion with 3 Flanking Duplication (Invdup) (non-negative integer)', default=5)
+    parser.add_argument('-num_ID14_csv', type=int, help='Number of ID14: Paired-duplication inversion (dupInvdup) (non-negative integer)', default=5)
+    parser.add_argument('-num_ID15_csv', type=int, help='Number of ID15: Inversion with 5 Flanking Duplication and 3 Flanking Deletion (dupInvdel) (non-negative integer)', default=5)
+    parser.add_argument('-num_ID16_csv', type=int, help='Number of ID16: Inversion with 5 Flanking Deletion and 3 Flanking Duplication (delInvdup) (non-negative integer)', default=5)
+    parser.add_argument('-num_ID17_csv', type=int, help='Number of ID17: Inverted Duplication with Flanking Triplication (dupTRIPdup-INV) (non-negative integer)', default=5)
+    parser.add_argument('-num_ID18_csv', type=int, help='Number of ID18: Insertion with Deletion (INSdel) (non-negative integer)', default=5)
     #define length
-    parser.add_argument('-mu_ID1', type=int, help='Mean of length for CSV ID1', default=1000)
-    parser.add_argument('-sigma_ID1', type=int, help='Sigma of length for CSV ID1', default=100)
+    parser.add_argument('-mu_ID1', type=int, help='Mean of length for CSV ID1 (integer, larger than 100)', default=1000)
+    parser.add_argument('-sigma_ID1', type=int, help='Sigma of length for CSV ID1 (non-negative integer)', default=100)
 
-    parser.add_argument('-mu_ID2', type=int, help='Mean of length for CSV ID2', default=1000)
-    parser.add_argument('-sigma_ID2', type=int, help='Sigma of length for CSV ID2', default=100)
+    parser.add_argument('-mu_ID2', type=int, help='Mean of length for CSV ID2 (integer, larger than 100)', default=1000)
+    parser.add_argument('-sigma_ID2', type=int, help='Sigma of length for CSV ID2 (non-negative integer)', default=100)
 
-    parser.add_argument('-mu_ID3', type=int, help='Mean of length for CSV ID3', default=1000)
-    parser.add_argument('-sigma_ID3', type=int, help='Sigma of length for CSV ID3', default=100)
+    parser.add_argument('-mu_ID3', type=int, help='Mean of length for CSV ID3 (integer, larger than 100)', default=1000)
+    parser.add_argument('-sigma_ID3', type=int, help='Sigma of length for CSV ID3 (non-negative integer)', default=100)
 
-    parser.add_argument('-mu_ID4', type=int, help='Mean of length for CSV ID4', default=1000)
-    parser.add_argument('-sigma_ID4', type=int, help='Sigma of length for CSV ID4', default=100)
+    parser.add_argument('-mu_ID4', type=int, help='Mean of length for CSV ID4 (integer, larger than 100)', default=1000)
+    parser.add_argument('-sigma_ID4', type=int, help='Sigma of length for CSV ID4 (non-negative integer)', default=100)
 
-    parser.add_argument('-mu_ID5', type=int, help='Mean of length for CSV ID5', default=1000)
-    parser.add_argument('-sigma_ID5', type=int, help='Sigma of length for CSV ID5', default=100)
+    parser.add_argument('-mu_ID5', type=int, help='Mean of length for CSV ID5 (integer, larger than 100)', default=1000)
+    parser.add_argument('-sigma_ID5', type=int, help='Sigma of length for CSV ID5 (non-negative integer)', default=100)
 
-    parser.add_argument('-mu_ID6', type=int, help='Mean of length for CSV ID6', default=1000)
-    parser.add_argument('-sigma_ID6', type=int, help='Sigma of length for CSV ID6', default=100)
+    parser.add_argument('-mu_ID6', type=int, help='Mean of length for CSV ID6 (integer, larger than 100)', default=1000)
+    parser.add_argument('-sigma_ID6', type=int, help='Sigma of length for CSV ID6 (non-negative integer)', default=100)
 
-    parser.add_argument('-mu_ID7', type=int, help='Mean of length for CSV ID7', default=1000)
-    parser.add_argument('-sigma_ID7', type=int, help='Sigma of length for CSV ID7', default=100)
+    parser.add_argument('-mu_ID7', type=int, help='Mean of length for CSV ID7 (integer, larger than 100)', default=1000)
+    parser.add_argument('-sigma_ID7', type=int, help='Sigma of length for CSV ID7 (non-negative integer)', default=100)
 
-    parser.add_argument('-mu_ID8', type=int, help='Mean of length for CSV ID8', default=1000)
-    parser.add_argument('-sigma_ID8', type=int, help='Sigma of length for CSV ID8', default=100)
+    parser.add_argument('-mu_ID8', type=int, help='Mean of length for CSV ID8 (integer, larger than 100)', default=1000)
+    parser.add_argument('-sigma_ID8', type=int, help='Sigma of length for CSV ID8 (non-negative integer)', default=100)
 
-    parser.add_argument('-mu_ID9', type=int, help='Mean of length for CSV ID9', default=1000)
-    parser.add_argument('-sigma_ID9', type=int, help='Sigma of length for CSV ID9', default=100)
+    parser.add_argument('-mu_ID9', type=int, help='Mean of length for CSV ID9 (integer, larger than 100)', default=1000)
+    parser.add_argument('-sigma_ID9', type=int, help='Sigma of length for CSV ID9 (non-negative integer)', default=100)
 
-    parser.add_argument('-mu_ID10', type=int, help='Mean of length for CSV ID10', default=1000)
-    parser.add_argument('-sigma_ID10', type=int, help='Sigma of length for CSV ID10', default=100)
+    parser.add_argument('-mu_ID10', type=int, help='Mean of length for CSV ID10 (integer, larger than 100)', default=1000)
+    parser.add_argument('-sigma_ID10', type=int, help='Sigma of length for CSV ID10 (non-negative integer)', default=100)
 
-    parser.add_argument('-mu_ID11', type=int, help='Mean of length for CSV ID11', default=1000)
-    parser.add_argument('-sigma_ID11', type=int, help='Sigma of length for CSV ID11', default=100)
+    parser.add_argument('-mu_ID11', type=int, help='Mean of length for CSV ID11 (integer, larger than 100)', default=1000)
+    parser.add_argument('-sigma_ID11', type=int, help='Sigma of length for CSV ID11 (non-negative integer)', default=100)
     
-    parser.add_argument('-mu_ID12', type=int, help='Mean of length for CSV ID12', default=1000)
-    parser.add_argument('-sigma_ID12', type=int, help='Sigma of length for CSV ID12', default=100)
+    parser.add_argument('-mu_ID12', type=int, help='Mean of length for CSV ID12 (integer, larger than 100)', default=1000)
+    parser.add_argument('-sigma_ID12', type=int, help='Sigma of length for CSV ID12 (non-negative integer)', default=100)
     
-    parser.add_argument('-mu_ID13', type=int, help='Mean of length for CSV ID13', default=1000)
-    parser.add_argument('-sigma_ID13', type=int, help='Sigma of length for CSV ID13', default=100)
+    parser.add_argument('-mu_ID13', type=int, help='Mean of length for CSV ID13 (integer, larger than 100)', default=1000)
+    parser.add_argument('-sigma_ID13', type=int, help='Sigma of length for CSV ID13 (non-negative integer)', default=100)
     
-    parser.add_argument('-mu_ID14', type=int, help='Mean of length for CSV ID14', default=1000)
-    parser.add_argument('-sigma_ID14', type=int, help='Sigma of length for CSV ID14', default=100)
+    parser.add_argument('-mu_ID14', type=int, help='Mean of length for CSV ID14 (integer, larger than 100)', default=1000)
+    parser.add_argument('-sigma_ID14', type=int, help='Sigma of length for CSV ID14 (non-negative integer)', default=100)
     
-    parser.add_argument('-mu_ID15', type=int, help='Mean of length for CSV ID15', default=1000)
-    parser.add_argument('-sigma_ID15', type=int, help='Sigma of length for CSV ID15', default=100)
+    parser.add_argument('-mu_ID15', type=int, help='Mean of length for CSV ID15 (integer, larger than 100)', default=1000)
+    parser.add_argument('-sigma_ID15', type=int, help='Sigma of length for CSV ID15 (non-negative integer)', default=100)
     
-    parser.add_argument('-mu_ID16', type=int, help='Mean of length for CSV ID16', default=1000)
-    parser.add_argument('-sigma_ID16', type=int, help='Sigma of length for CSV ID16', default=100)
+    parser.add_argument('-mu_ID16', type=int, help='Mean of length for CSV ID16 (integer, larger than 100)', default=1000)
+    parser.add_argument('-sigma_ID16', type=int, help='Sigma of length for CSV ID16 (non-negative integer)', default=100)
     
-    parser.add_argument('-mu_ID17', type=int, help='Mean of length for CSV ID17', default=1000)
-    parser.add_argument('-sigma_ID17', type=int, help='Sigma of length for CSV ID17', default=100)
+    parser.add_argument('-mu_ID17', type=int, help='Mean of length for CSV ID17 (integer, larger than 100)', default=1000)
+    parser.add_argument('-sigma_ID17', type=int, help='Sigma of length for CSV ID17 (non-negative integer)', default=100)
     
-    parser.add_argument('-mu_ID18', type=int, help='Mean of length for CSV ID18', default=1000)
-    parser.add_argument('-sigma_ID18', type=int, help='Sigma of length for CSV ID18', default=100)
+    parser.add_argument('-mu_ID18', type=int, help='Mean of length for CSV ID18 (integer, larger than 100)', default=1000)
+    parser.add_argument('-sigma_ID18', type=int, help='Sigma of length for CSV ID18 (non-negative integer)', default=100)
     
     parser.add_argument('-wave', action='store_true', help='Run Wave.py script')
-    parser.add_argument('-mode', type=str, help='Mode for calculating probabilities', default='probability')
+    parser.add_argument('-mode', type=str, help='Mode for calculating number of SVs per bin', default='probability')
     parser.add_argument('-sum', action='store_true', help='total indel SV equals sum of the input (single sample) or mean of the input (multiple samples)')
     parser.add_argument('-indel_input_bed', type=str, help='Input BED file for indels (required if input single sample for wave or wave-region mode)',default=None)
     parser.add_argument('-file_list', type=str, nargs='+', default=['NA19240_chr21', 'HG02818_chr21', 'NA19434_chr21'],
                         help='List of sample files (default: NA19240_chr21.bed, HG02818_chr21.bed, NA19434_chr21.bed in empirical folder) (required if multiple samples for wave or wave-region mode)')
 
     parser.add_argument('-wave_region', action='store_true', help='Run Wave_TR.py script')
-    parser.add_argument('-p_del_region', type=float, help='Probability of SV DEL in the user-defined region for deletion (required for wave-region mode)', default=0.5)
-    parser.add_argument('-p_ins_region',  type=float, help='Probability of SV INS in the user-defined region for insertion (required for wave-region mode)', default=0.5)
+    parser.add_argument('-p_del_region', type=float, help='Probability of SV DEL (between 0 and 1) in the user-defined region for deletion (required for wave-region mode)', default=0.5)
+    parser.add_argument('-p_ins_region',  type=float, help='Probability of SV INS (between 0 and 1) in the user-defined region for insertion (required for wave-region mode)', default=0.5)
     parser.add_argument('-region_bed_url', type=str, help='local path of the BED file for the user-defined region (required for wave-region mode)', default=None)
-    parser.add_argument('-hg38', type=str, help='Chromosome name (required for hg38 mode)', required=False)
-    parser.add_argument('-hg19', type=str, help='Chromosome name (required for hg19 mode)', required=False)
-    return parser.parse_args()
+    parser.add_argument('-hg38', type=str, help='Chromosome name (chr1-chr22, required for hg38 mode)', required=False)
+    parser.add_argument('-hg19', type=str, help='Chromosome name (chr1-chr22, required for hg19 mode)', required=False)
+    
+    
+    # # 加载 YAML 配置
+    # final_args = {}
+    # if config_args.config and os.path.exists(config_args.config):
+    #     try:
+    #         with open(config_args.config, 'r') as f:
+    #             yaml_config = yaml.safe_load(f)
+    #             print("Loaded YAML config:", yaml_config)
+                
+    #             # 展平嵌套结构（关键修复）
+    #             flat_config = {}
+    #             for section, values in yaml_config.items():
+    #                 if isinstance(values, dict):
+    #                     for k, v in values.items():
+    #                         flat_key = f"{section}_{k}" if section not in ['general', 'variants'] else k
+    #                         flat_config[flat_key] = v
+    #                 else:
+    #                     flat_config[section] = values
+                
+    #             # 应用配置
+    #             for key, value in flat_config.items():
+    #                 if value is not None:
+    #                     final_args[key] = value
+
+    #     except Exception as e:
+    #         print(f"Error loading config: {e}")
+    #         sys.exit(1)
+    # 第三阶段：加载 YAML 配置
+    final_args = {}
+    if config_args.config and os.path.exists(config_args.config):
+        try:
+            with open(config_args.config, 'r') as f:
+                yaml_config = yaml.safe_load(f)
+                # print("Loaded YAML config:", yaml_config)
+                
+                # ================== 展平嵌套结构 ==================
+                flat_config = {}
+                for section, values in yaml_config.items():
+                    if isinstance(values, dict):
+                        for k, v in values.items():
+                            flat_key = f"{section}_{k}" if section not in ['general', 'variants'] else k
+                            flat_config[flat_key] = v
+                    else:
+                        flat_config[section] = values
+                        
+                # ================== 新增代码：路径转换（操作 flat_config） ==================
+                # 获取项目根目录
+                main_dir = os.path.dirname(os.path.realpath(__file__))  # main.py 所在目录：BVSim/main/
+                project_root = os.path.abspath(os.path.join(main_dir, ".."))  # 项目根目录
+                
+                def resolve_path(rel_path):
+                    return os.path.abspath(os.path.join(project_root, rel_path))
+                
+                # 处理路径转换
+                path_keys = ['ref', 'save', 'block_region_bed_url']
+                for key in path_keys:
+                    if key in flat_config and flat_config[key]:
+                        flat_config[key] = resolve_path(flat_config[key])
+                
+                # ================== 应用配置 ==================
+                for key, value in flat_config.items():
+                    if value is not None:
+                        final_args[key] = value
+
+        except Exception as e:
+            print(f"Error loading config: {e}")
+            sys.exit(1)
+
+    # 合并参数（命令行参数优先）
+    args = parser.parse_args(args=remaining_argv, namespace=argparse.Namespace(**final_args))
+   
+    # # 调试输出
+    # print("\nFinal parameters with sources:")
+    # sources = {}
+    # remaining_argv_dict = {remaining_argv[i][1:]: remaining_argv[i+1] 
+    #                     for i in range(0, len(remaining_argv), 2) 
+    #                     if remaining_argv[i].startswith('-')}
+
+    # for action in parser._actions:
+    #     dest = action.dest
+    #     if dest == 'help':
+    #         continue
+            
+    #     value = getattr(args, dest)
+    #     if dest in remaining_argv_dict:
+    #         sources[dest] = "command line"
+    #     elif dest in final_args:
+    #         sources[dest] = "YAML config"
+    #     else:
+    #         sources[dest] = "default"
+
+    # max_len = max(len(k) for k in sources.keys())
+    # for param, src in sorted(sources.items()):
+    #     print(f"{param:<{max_len}} : {src:<12} = {getattr(args, param)}")
+    
+    return args
     
 
 def main():
@@ -166,7 +307,7 @@ def main():
         cmd = [
             "python", 
             os.path.join(main_dir, script_name),
-            "-vcf", os.path.abspath(args.vcf),  # 直接使用args.vcf作为文件路径
+            "-vcf_file", os.path.abspath(args.vcf_file),  # 直接使用args.vcf作为文件路径
             "-save", args.save,
             "-min_len", str(args.min_len),
             "-sv_types"
