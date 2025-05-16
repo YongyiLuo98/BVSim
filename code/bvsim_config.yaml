@@ -15,7 +15,7 @@ len_bins: 50000  # Length of bins for parallel processing
 notblockN: false  # Block N positions
 write: false  # Write relative positions
 block_region_bed_url: null  # Block region BED file path
-
+uniform: false
 # Variant generation parameters
 
 # Simple variant counts
@@ -130,6 +130,6 @@ p_ins_region: 0.5  # Probability of INS in region
 region_bed_url: null  # Region BED file
 
 # Genome-specific parameters
-
+mimic: false
 hg38: null  # Chromosome name for hg38
 hg19: null  # Chromosome name for hg19

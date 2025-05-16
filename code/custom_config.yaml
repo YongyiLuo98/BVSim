@@ -4,29 +4,29 @@
 # General parameters
 
 # All paths are based on the project root directory (BVSim/)
-ref: "/disk18T3/project18/home_project18/data/test_data/Debug/task10/hs37d5.fasta" 
-save: "/disk18T3/project18/home_project18/data/test_data/Debug/task14/"  # 项目根目录下的save文件夹
-seed: 0  # Random seed
+ref: "empirical/sub_hg19_chr1.fasta" 
+save: "save/"  # 项目根目录下的save文件夹
+seed: 999  # Random seed
 times: 10  # Maximum sampling times
-rep: 10  # Replication ID
-seq_index: 20  # Sequence index (0-based)
+rep: 0  # Replication ID
+seq_index: 0  # Sequence index (0-based)
 cores: 1  # Number of cores for parallel processing
 len_bins: 50000  # Length of bins for parallel processing
 notblockN: false  # Block N positions
 write: false  # Write relative positions
 block_region_bed_url: null  # Block region BED file path
-
+uniform: false
 # Variant generation parameters
 
 # Simple variant counts
 sv_trans: 5  # Translocations
 sv_inver: 5  # Inversions
-sv_dup: 15  # Duplications
+sv_dup: 5  # Duplications
 sv_del: 5  # Deletions
 sv_ins: 5  # Insertions
 snp: 5  # SNVs (count or probability)
 snv_del: 5  # SNV deletions
-snv_ins: 15  # SNV insertions
+snv_ins: 5  # SNV insertions
 
 # Length ranges
 delmin: 50  # Minimum deletion length
@@ -130,6 +130,6 @@ p_ins_region: 0.5  # Probability of INS in region
 region_bed_url: null  # Region BED file
 
 # Genome-specific parameters
-
+mimic: false
 hg38: null  # Chromosome name for hg38
 hg19: null  # Chromosome name for hg19

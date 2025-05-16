@@ -296,7 +296,7 @@ Files follow this structured naming pattern:
 ```
   <vcf_file>_<chr>_<select>_min<min_len>_<sv_type>.csv
 ```
-
+#### Toy example (VCF mode)
 ```bash
 #!/bin/bash
 #SBATCH -J VCF

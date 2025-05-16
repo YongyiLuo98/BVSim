@@ -1,63 +1,58 @@
 import argparse
 import subprocess
 import os
-import yaml  # Add this import
-from argparse import Namespace
+import yaml
 import sys
 
-# def load_yaml_config(config_path):
-#     """Load configuration from YAML file"""
-#     with open(config_path, 'r') as f:
-#         config = yaml.safe_load(f)
-#     return config
-
-# def merge_configs(cli_args, yaml_config):
-#     """Merge YAML config with command-line arguments"""
-#     args_dict = vars(cli_args)
-    
-#     # Flatten the nested YAML structure
-#     flat_config = {}
-#     for section, section_values in yaml_config.items():
-#         if isinstance(section_values, dict):
-#             for key, value in section_values.items():
-#                 flat_config[key] = value
-#         else:
-#             flat_config[section] = section_values
-    
-#     # Update CLI args with YAML config
-#     for key, value in flat_config.items():
-#         # Only overwrite if:
-#         # 1. The key exists in CLI args
-#         # 2. The value is not None (from YAML)
-#         # 3. Not a mode flag (like csv, wave, etc.)
-#         if (key in args_dict and 
-#             value is not None and 
-#             not key.endswith('_enabled')):
-#             args_dict[key] = value
-    
-#     return Namespace(**args_dict)
-
 def parse_args():
-    # Phase 1: Parsing only -config parameters
+    # 第一阶段：解析 -config 参数
     initial_parser = argparse.ArgumentParser(add_help=False)
     initial_parser.add_argument(
         '-config', 
         type=str,
-        default=os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', 'code') + '/bvsim_config.yaml'
-    )
+        default=os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', 'code') + '/bvsim_config.yaml', help='YAML config file path')
     config_args, remaining_argv = initial_parser.parse_known_args()
-    
-    print(f"Stage1 remaining argv: {remaining_argv}")
-    
-    # Use ArgumentDefaultsHelpFormatter to automatically show defaults
+
+    # 主参数解析器
     parser = argparse.ArgumentParser(
         description='BVSim version 1.0.0',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
+
+    # ================== 互斥操作模式 ==================
+    action_group = parser.add_mutually_exclusive_group(required=True)
+    action_group.add_argument('-vcf', action='store_true', help='Run VCF processing')
+    action_group.add_argument('-exact', action='store_true', help='Exact variant generation')
+    action_group.add_argument('-csv', action='store_true', help='Run CSV processing')
+    action_group.add_argument('-wave', action='store_true', help='Run Wave model')
+    action_group.add_argument('-wave_region', action='store_true', help='Run Wave region model')
+    action_group.add_argument('-mimic', action='store_true', help='Realistic genome simulation (requires -hg38/-hg19)')
+    action_group.add_argument('-uniform', action='store_true', help='Uniform distribution mode')
+
+       # ================== 模式专用参数 ==================
+    # Mimic模式参数
+    parser.add_argument('-hg38', type=str, help='Chromosome name (e.g. chr1-chr22) for hg38 genome')
+    parser.add_argument('-hg19', type=str, help='Chromosome name (e.g. chr1-chr22) for hg19 genome')
+    parser.add_argument('-cell', action='store_true', help='Use CELL dataset list')
+    parser.add_argument('-hgsvc', action='store_true', help='Use HGSVC dataset list')
+
     # Add config file argument
     parser.add_argument('-config', type=str, help='Path to YAML configuration file', default=os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', 'code')+ '/bvsim_config.yaml')
     parser.add_argument('-ref', type=str, help='Input reference local path', default=os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', 'empirical')+ '/sub_hg19_chr1.fasta')
-    parser.add_argument('-save', type=str, help='local path for saving', default=os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', 'save')+ '/')
+    # parser.add_argument('-save', type=str, help='local path for saving', default=os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', 'save')+ '/')
+    # 修改 -save 参数的定义
+    save_default = os.path.join(
+        os.path.dirname(os.path.realpath(__file__)), 
+        '..', 
+        'save'
+    ) + '/'  # 默认值强制添加斜杠
+    print(save_default)
+    parser.add_argument(
+        '-save', 
+        type=str, 
+        help='local path for saving', 
+        default=save_default
+    )
     parser.add_argument('-seed', type=int, help='Global seed for random number generator (non-negative integer)', default=999)
     parser.add_argument('-times', type=int, help='Maximum sampling times (positive integer)', default=10)
     parser.add_argument('-rep', type=int, help='Replication ID (non-negative integer for naming the files)', default=99)
@@ -66,18 +61,18 @@ def parse_args():
     
     
     # VCF-specific arguments
-    parser.add_argument('-vcf', action='store_true', help='Run csv.py script')
-    parser.add_argument('-vcf_file', type=str, help='Run VCF.py script with input VCF file path')
+    
+    parser.add_argument('-vcf_file', type=str, help='Input VCF file path (required for VCF mode)')
     parser.add_argument('-chr', type=str, help='Target chromosome name to filter from VCF file (e.g., chr21) (required for VC mode)')
     parser.add_argument('-select', type=str, help='Selection criteria (e.g., "AF>0.001", "SVLEN>=100") (required for VC mode)')
-    parser.add_argument('-min_len', type=int, default=50, help='Minimum SV length (bp)(required for VC mode)')
+    parser.add_argument('-min_len', type=int, default=50, help='Minimum SV length (bp) (positice integer, required for VC mode)')
     parser.add_argument('-sv_types', nargs='+', default=["DEL", "INS", "DUP", "INV"], 
                        help='SV types to include (required for VC mode)')
     
     # 变异生成模式选择
     
-    parser.add_argument('-exact', action='store_true', help='Generate exact variants from input table')
-    parser.add_argument('-variant_table', type=str, help='Path to variant table CSV/TSV file (required for exact mode)')
+   
+    parser.add_argument('-variant_table', type=str, help='Path to variant table CSV file (required for exact mode)')
     parser.add_argument('-validate_only', action='store_true',
                       help='Only validate input without generating variants')
     
@@ -92,9 +87,9 @@ def parse_args():
     parser.add_argument('-notblockN', action='store_true', help='Do not Block N positions')
     parser.add_argument('-write', action='store_true', help='Write relative positions')
     parser.add_argument('-block_region_bed_url', '--block_region_bed_url', type=str, help='local path of the block region BED file', default=None)
-    parser.add_argument('-cores', type=int, help='Number of kernels for parallel processing (required for uniform-parallel/wave/wave-region mode to set up parallel computing)', default=1)
+    parser.add_argument('-cores', type=int, help='Number of kernels for parallel processing (positive integer, required for uniform-parallel/wave/wave-region mode to set up parallel computing)', default=1)
     
-    parser.add_argument('-len_bins', type=int, help='Length of bins for parallel processing, must be >0 and <reference length', default=50000)
+    parser.add_argument('-len_bins', type=int, help='Length of bins for parallel processing, must be positive integer and smaller than reference length (required for uniform-parallel/wave/wave-region mode to set up parallel computing)', default=50000)
     parser.add_argument('-delmin', type=int, help='Minimum deletion length (integer, not smaller than 50)', default=50)
     parser.add_argument('-delmax', type=int, help='Maximum deletion length (integer, larger than delmin)', default=60)
     parser.add_argument('-insmin', type=int, help='Minimum insertion length (integer, not smaller than 50)', default=50)
@@ -105,7 +100,7 @@ def parse_args():
     parser.add_argument('-invmax', type=int, help='Maximum inversion length (integer, larger than invmin)', default=450)
     parser.add_argument('-transmin', type=int, help='Minimum translocation length (integer, not smaller than 50)', default=50)
     parser.add_argument('-transmax', type=int, help='Maximum translocation length (integer, larger than transmin)', default=450) 
-    parser.add_argument('-csv', action='store_true', help='Run csv.py script')
+    
     #CSV
     parser.add_argument('-csv_num', type=int, help='Number for each type of CSV, superior to -csv_total_num (non-negative integer)', default=0)
     parser.add_argument('-csv_total_num', type=int, help='Total number for CSV, assign number of each type by empirical weights (non-negative integer)', default=0)
@@ -183,47 +178,20 @@ def parse_args():
     parser.add_argument('-mu_ID18', type=int, help='Mean of length for CSV ID18 (integer, larger than 100)', default=1000)
     parser.add_argument('-sigma_ID18', type=int, help='Sigma of length for CSV ID18 (non-negative integer)', default=100)
     
-    parser.add_argument('-wave', action='store_true', help='Run Wave.py script')
-    parser.add_argument('-mode', type=str, help='Mode for calculating number of SVs per bin', default='probability')
+    
+    parser.add_argument('-mode', type=str, help='Mode for calculating number of SVs per bin (empirical/probability)', default='probability')
     parser.add_argument('-sum', action='store_true', help='total indel SV equals sum of the input (single sample) or mean of the input (multiple samples)')
     parser.add_argument('-indel_input_bed', type=str, help='Input BED file for indels (required if input single sample for wave or wave-region mode)',default=None)
     parser.add_argument('-file_list', type=str, nargs='+', default=['NA19240_chr21', 'HG02818_chr21', 'NA19434_chr21'],
-                        help='List of sample files (default: NA19240_chr21.bed, HG02818_chr21.bed, NA19434_chr21.bed in empirical folder) (required if multiple samples for wave or wave-region mode)')
+                        help='List of sample files (e.g. NA19240_chr21.bed, HG02818_chr21.bed, NA19434_chr21.bed in empirical folder) (required if multiple samples for wave or wave-region mode)')
 
-    parser.add_argument('-wave_region', action='store_true', help='Run Wave_TR.py script')
+    
     parser.add_argument('-p_del_region', type=float, help='Probability of SV DEL (between 0 and 1) in the user-defined region for deletion (required for wave-region mode)', default=0.5)
     parser.add_argument('-p_ins_region',  type=float, help='Probability of SV INS (between 0 and 1) in the user-defined region for insertion (required for wave-region mode)', default=0.5)
     parser.add_argument('-region_bed_url', type=str, help='local path of the BED file for the user-defined region (required for wave-region mode)', default=None)
-    parser.add_argument('-hg38', type=str, help='Chromosome name (chr1-chr22, required for hg38 mode)', required=False)
-    parser.add_argument('-hg19', type=str, help='Chromosome name (chr1-chr22, required for hg19 mode)', required=False)
+   
     
     
-    # # 加载 YAML 配置
-    # final_args = {}
-    # if config_args.config and os.path.exists(config_args.config):
-    #     try:
-    #         with open(config_args.config, 'r') as f:
-    #             yaml_config = yaml.safe_load(f)
-    #             print("Loaded YAML config:", yaml_config)
-                
-    #             # 展平嵌套结构（关键修复）
-    #             flat_config = {}
-    #             for section, values in yaml_config.items():
-    #                 if isinstance(values, dict):
-    #                     for k, v in values.items():
-    #                         flat_key = f"{section}_{k}" if section not in ['general', 'variants'] else k
-    #                         flat_config[flat_key] = v
-    #                 else:
-    #                     flat_config[section] = values
-                
-    #             # 应用配置
-    #             for key, value in flat_config.items():
-    #                 if value is not None:
-    #                     final_args[key] = value
-
-    #     except Exception as e:
-    #         print(f"Error loading config: {e}")
-    #         sys.exit(1)
     # 第三阶段：加载 YAML 配置
     final_args = {}
     if config_args.config and os.path.exists(config_args.config):
@@ -267,41 +235,42 @@ def parse_args():
 
     # 合并参数（命令行参数优先）
     args = parser.parse_args(args=remaining_argv, namespace=argparse.Namespace(**final_args))
-   
-    # # 调试输出
-    # print("\nFinal parameters with sources:")
-    # sources = {}
-    # remaining_argv_dict = {remaining_argv[i][1:]: remaining_argv[i+1] 
-    #                     for i in range(0, len(remaining_argv), 2) 
-    #                     if remaining_argv[i].startswith('-')}
-
-    # for action in parser._actions:
-    #     dest = action.dest
-    #     if dest == 'help':
-    #         continue
-            
-    #     value = getattr(args, dest)
-    #     if dest in remaining_argv_dict:
-    #         sources[dest] = "command line"
-    #     elif dest in final_args:
-    #         sources[dest] = "YAML config"
-    #     else:
-    #         sources[dest] = "default"
-
-    # max_len = max(len(k) for k in sources.keys())
-    # for param, src in sorted(sources.items()):
-    #     print(f"{param:<{max_len}} : {src:<12} = {getattr(args, param)}")
+    from pathlib import Path
     
+    # 处理 -save 参数
+    save_path = Path(args.save).resolve()  # 解析绝对路径并标准化
+    args.save = str(save_path).rstrip('/') + '/'  # 确保以 / 结尾
     return args
-    
+
+def validate_arguments(args):
+    """参数校验逻辑"""
+    # Chromosome格式校验
+    chroms = [f'chr{i}' for i in range(1,23)]
+    if args.hg38 and (not args.hg38.startswith('chr') or args.hg38 not in chroms):
+        raise argparse.ArgumentError('-hg38', f'Must be one of {chroms}')
+    if args.hg19 and (not args.hg19.startswith('chr') or args.hg19 not in chroms):
+        raise argparse.ArgumentError('-hg19', f'Must be one of {chroms}')
+
+    # 互斥校验
+    if args.cell and args.hgsvc:
+        raise argparse.ArgumentError(None, '-cell and -hgsvc are mutually exclusive')
+    if args.mimic and not (args.hg38 or args.hg19):
+        raise argparse.ArgumentError('-mimic', 'Requires -hg38 or -hg19')
+    if args.hg38 and args.hg19:
+        raise argparse.ArgumentError(None, '-hg38 and -hg19 are mutually exclusive')
 
 def main():
     args = parse_args()
-    
-     # 获取main.py文件所在的路径
+    try:
+        validate_arguments(args)
+    except argparse.ArgumentError as e:
+        print(f"参数错误: {e}")
+        sys.exit(1)
+
+    # 获取脚本目录
     main_dir = os.path.dirname(os.path.realpath(__file__))
     
-    # Handle VCF mode
+    # 构建基础命令
     if args.vcf:  # 现在args.vcf直接包含文件路径
         script_name = "VCF.py"
         cmd = [
@@ -321,7 +290,7 @@ def main():
         # 执行VCF.py并退出
         subprocess.run(cmd)
         return  # 确保执行后直接退出
-        
+    
     elif args.exact:
         # print("Entering exact mode...")  # 确认进入exact模式
         script_name = "exact.py"
@@ -458,123 +427,122 @@ def main():
         cmd.extend(["-file_list"] + args.file_list)  # 将 file_list 展开为多个参数
         if args.sum:
             cmd.append("-sum")
-            
-        # # 执行exact.py并退出
-        # subprocess.run(cmd)
-        # return  # 确保执行后直接退出
-            
-    elif args.hg38:
-        script_name = "Wave_hg38_TR.py"
-        cmd = ["python", os.path.join(main_dir, script_name), "-ref", args.ref, "-save", args.save, "-seed", str(args.seed), 
-               "-times", str(args.times), "-rep", str(args.rep), "-sv_trans", str(args.sv_trans), "-sv_inver", str(args.sv_inver), "-sv_dup", 
-               str(args.sv_dup), "-sv_del", str(args.sv_del), "-sv_ins", str(args.sv_ins), "-cores", str(args.cores), "-len_bins", 
-               str(args.len_bins), 
-               "-delmin", str(args.delmin), 
-               "-delmax", str(args.delmax), 
-               "-insmin", str(args.insmin), 
-               "-insmax", str(args.insmax),
-               "-dupmin", str(args.dupmin), 
-                "-dupmax", str(args.dupmax), 
-                "-invmin", str(args.invmin), 
-                "-invmax", str(args.invmax),
-                "-transmin", str(args.transmin), 
-                "-transmax", str(args.transmax),
-               "-mode", args.mode, "-p_del_region", str(args.p_del_region), "-p_ins_region", str(args.p_ins_region),
-               "-hg38", str(args.hg38),
-                "-seq_index", str(args.seq_index)]
-        # 添加 indel_input_bed 参数
-        if args.block_region_bed_url:
-            cmd.extend(["-block_region_bed_url", str(args.block_region_bed_url)])
-        if args.region_bed_url:
-            cmd.extend(["-region_bed_url", args.region_bed_url])
-        if args.indel_input_bed:
-            cmd.extend(["-indel_input_bed", args.indel_input_bed])
-        if args.sum:
-            cmd.append("-sum")
-            
-        # # 执行exact.py并退出
-        # subprocess.run(cmd)
-        # return  # 确保执行后直接退出
-            
-    elif args.hg19:
-        script_name = "Wave_hg19_TR.py"
-        cmd = ["python", os.path.join(main_dir, script_name), "-ref", args.ref, "-save", args.save, "-seed", str(args.seed), 
-               "-times", str(args.times), "-rep", str(args.rep), "-sv_trans", str(args.sv_trans), "-sv_inver", str(args.sv_inver), "-sv_dup", 
-               str(args.sv_dup), "-sv_del", str(args.sv_del), "-sv_ins", str(args.sv_ins), "-cores", str(args.cores), "-len_bins", 
-               str(args.len_bins), 
-               "-delmin", str(args.delmin), 
-               "-delmax", str(args.delmax), 
-               "-insmin", str(args.insmin), 
-               "-insmax", str(args.insmax),
-               "-dupmin", str(args.dupmin), 
-                "-dupmax", str(args.dupmax), 
-                "-invmin", str(args.invmin), 
-                "-invmax", str(args.invmax),
-                "-transmin", str(args.transmin), 
-                "-transmax", str(args.transmax),
-               "-mode", args.mode, "-p_del_region", str(args.p_del_region), "-p_ins_region", str(args.p_ins_region),
-               "-hg19", str(args.hg19),
-                "-seq_index", str(args.seq_index)]
-        # 添加 indel_input_bed 参数
-        if args.block_region_bed_url:
-            cmd.extend(["-block_region_bed_url", str(args.block_region_bed_url)])
-        if args.region_bed_url:
-            cmd.extend(["-region_bed_url", args.region_bed_url])
-        if args.indel_input_bed:
-            cmd.extend(["-indel_input_bed", args.indel_input_bed])
-        if args.sum:
-            cmd.append("-sum")
-            
-    elif args.cores is not None and args.cores > 1:
-        script_name = "uniform_parallel.py"
-        cmd = ["python", os.path.join(main_dir, script_name), "-ref", args.ref, "-save", args.save, "-seed", str(args.seed), 
-               "-times", str(args.times), "-rep", str(args.rep), "-sv_trans", str(args.sv_trans), "-sv_inver", str(args.sv_inver), "-sv_dup", 
-               str(args.sv_dup), "-sv_del", str(args.sv_del), "-sv_ins", str(args.sv_ins), "-cores", str(args.cores), "-len_bins", 
-               str(args.len_bins), 
-               "-delmin", str(args.delmin), 
-               "-delmax", str(args.delmax), 
-               "-insmin", str(args.insmin), 
-               "-insmax", str(args.insmax),
-               "-dupmin", str(args.dupmin), 
-                "-dupmax", str(args.dupmax), 
-                "-invmin", str(args.invmin), 
-                "-invmax", str(args.invmax),
-                "-transmin", str(args.transmin), 
-                "-transmax", str(args.transmax),
-               "-block_region_bed_url", str(args.block_region_bed_url),
-                "-seq_index", str(args.seq_index)]
-        
-    else:
-        script_name = "uniform.py"
-        cmd = ["python", os.path.join(main_dir, script_name), "-ref", args.ref, "-save", args.save, 
-               "-seed", str(args.seed), "-times", str(args.times), "-rep", str(args.rep), "-sv_trans", str(args.sv_trans), 
-               "-sv_inver", str(args.sv_inver), "-sv_dup", str(args.sv_dup), "-sv_del", str(args.sv_del), "-sv_ins", str(args.sv_ins), 
-               "-snp", str(args.snp), "-snv_del", str(args.snv_del), "-snv_ins", str(args.snv_ins), 
-               "-delmin", str(args.delmin), 
+    elif args.mimic:
+        if args.hg38:
+            script_name = "Wave_hg38_TR.py"
+            cmd = ["python", os.path.join(main_dir, script_name), "-ref", args.ref, "-save", args.save, "-seed", str(args.seed), 
+                "-times", str(args.times), "-rep", str(args.rep), "-sv_trans", str(args.sv_trans), "-sv_inver", str(args.sv_inver), "-sv_dup", 
+                str(args.sv_dup), "-sv_del", str(args.sv_del), "-sv_ins", str(args.sv_ins), "-cores", str(args.cores), "-len_bins", 
+                str(args.len_bins), 
+                "-delmin", str(args.delmin), 
                 "-delmax", str(args.delmax), 
                 "-insmin", str(args.insmin), 
                 "-insmax", str(args.insmax),
                 "-dupmin", str(args.dupmin), 
-                "-dupmax", str(args.dupmax), 
-                "-invmin", str(args.invmin), 
-                "-invmax", str(args.invmax),
-                "-transmin", str(args.transmin), 
-                "-transmax", str(args.transmax),
-               "-block_region_bed_url", str(args.block_region_bed_url),
-                 "-seq_index", str(args.seq_index)]
-            
-    if args.snp is not None:
-        cmd.extend(["-snp", str(args.snp)])
-    if args.snv_del is not None:
-        cmd.extend(["-snv_del", str(args.snv_del)])
-    if args.snv_ins is not None:
-        cmd.extend(["-snv_ins", str(args.snv_ins)])
+                    "-dupmax", str(args.dupmax), 
+                    "-invmin", str(args.invmin), 
+                    "-invmax", str(args.invmax),
+                    "-transmin", str(args.transmin), 
+                    "-transmax", str(args.transmax),
+                "-mode", args.mode, "-p_del_region", str(args.p_del_region), "-p_ins_region", str(args.p_ins_region),
+                "-hg38", str(args.hg38),
+                    "-seq_index", str(args.seq_index)]
+            # 添加 indel_input_bed 参数
+            if args.block_region_bed_url:
+                cmd.extend(["-block_region_bed_url", str(args.block_region_bed_url)])
+            if args.region_bed_url:
+                cmd.extend(["-region_bed_url", args.region_bed_url])
+            if args.indel_input_bed:
+                cmd.extend(["-indel_input_bed", args.indel_input_bed])
+            if args.sum:
+                cmd.append("-sum")
+            if args.cell:
+                cmd.append("-cell")
+            elif args.hgsvc:
+                cmd.append("-hgsvc")
+        else:
+            script_name = "Wave_hg19_TR.py"
+            cmd = ["python", os.path.join(main_dir, script_name), "-ref", args.ref, "-save", args.save, "-seed", str(args.seed), 
+                "-times", str(args.times), "-rep", str(args.rep), "-sv_trans", str(args.sv_trans), "-sv_inver", str(args.sv_inver), "-sv_dup", 
+                str(args.sv_dup), "-sv_del", str(args.sv_del), "-sv_ins", str(args.sv_ins), "-cores", str(args.cores), "-len_bins", 
+                str(args.len_bins), 
+                "-delmin", str(args.delmin), 
+                "-delmax", str(args.delmax), 
+                "-insmin", str(args.insmin), 
+                "-insmax", str(args.insmax),
+                "-dupmin", str(args.dupmin), 
+                    "-dupmax", str(args.dupmax), 
+                    "-invmin", str(args.invmin), 
+                    "-invmax", str(args.invmax),
+                    "-transmin", str(args.transmin), 
+                    "-transmax", str(args.transmax),
+                "-mode", args.mode, "-p_del_region", str(args.p_del_region), "-p_ins_region", str(args.p_ins_region),
+                "-hg19", str(args.hg19),
+                    "-seq_index", str(args.seq_index)]
+            # 添加 indel_input_bed 参数
+            if args.block_region_bed_url:
+                cmd.extend(["-block_region_bed_url", str(args.block_region_bed_url)])
+            if args.region_bed_url:
+                cmd.extend(["-region_bed_url", args.region_bed_url])
+            if args.indel_input_bed:
+                cmd.extend(["-indel_input_bed", args.indel_input_bed])
+            if args.sum:
+                cmd.append("-sum")
+
+    elif args.uniform:
+        if  args.cores is not None and args.cores > 1:
+            script_name = "uniform_parallel.py"
+            cmd = ["python", os.path.join(main_dir, script_name), "-ref", args.ref, "-save", args.save, "-seed", str(args.seed), 
+                "-times", str(args.times), "-rep", str(args.rep), "-sv_trans", str(args.sv_trans), "-sv_inver", str(args.sv_inver), "-sv_dup", 
+                str(args.sv_dup), "-sv_del", str(args.sv_del), "-sv_ins", str(args.sv_ins), "-cores", str(args.cores), "-len_bins", 
+                str(args.len_bins), 
+                "-delmin", str(args.delmin), 
+                "-delmax", str(args.delmax), 
+                "-insmin", str(args.insmin), 
+                "-insmax", str(args.insmax),
+                "-dupmin", str(args.dupmin), 
+                    "-dupmax", str(args.dupmax), 
+                    "-invmin", str(args.invmin), 
+                    "-invmax", str(args.invmax),
+                    "-transmin", str(args.transmin), 
+                    "-transmax", str(args.transmax),
+                "-block_region_bed_url", str(args.block_region_bed_url),
+                    "-seq_index", str(args.seq_index)]
+        else:
+            script_name = "uniform.py"
+            cmd = ["python", os.path.join(main_dir, script_name), "-ref", args.ref, "-save", args.save, 
+                "-seed", str(args.seed), "-times", str(args.times), "-rep", str(args.rep), "-sv_trans", str(args.sv_trans), 
+                "-sv_inver", str(args.sv_inver), "-sv_dup", str(args.sv_dup), "-sv_del", str(args.sv_del), "-sv_ins", str(args.sv_ins), 
+                "-snp", str(args.snp), "-snv_del", str(args.snv_del), "-snv_ins", str(args.snv_ins), 
+                "-delmin", str(args.delmin), 
+                    "-delmax", str(args.delmax), 
+                    "-insmin", str(args.insmin), 
+                    "-insmax", str(args.insmax),
+                    "-dupmin", str(args.dupmin), 
+                    "-dupmax", str(args.dupmax), 
+                    "-invmin", str(args.invmin), 
+                    "-invmax", str(args.invmax),
+                    "-transmin", str(args.transmin), 
+                    "-transmax", str(args.transmax),
+                "-block_region_bed_url", str(args.block_region_bed_url),
+                    "-seq_index", str(args.seq_index)]
+
+    # ================== 添加公共参数 ==================
+    common_params = [
+        "-snp", str(args.snp),
+        "-snv_del", str(args.snv_del),
+        "-snv_ins", str(args.snv_ins)
+    ]
     if args.notblockN:
-        cmd.append("-notblockN")
+        common_params.append("-notblockN")
     if args.write:
-        cmd.append("-write")
-    subprocess.run(cmd)
+        common_params.append("-write")
+    
+    cmd += common_params
+
+    # 执行命令
+    print("Run:", ' '.join(cmd))
+    subprocess.run(cmd, check=True)
 
 if __name__ == "__main__":
     main()
-
