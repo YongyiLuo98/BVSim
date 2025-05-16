@@ -5,6 +5,7 @@
 
 - [Getting Started](#getting-started)
 - [Installation](#installation)
+- [Configuration Files and CodesInstallation](#configuration-files-codes)
 - [General Functions and Parameters](#parameters)
   - [Shared Parameters](#shared-parameters)
     - [Output Naming Conventions](#output)
@@ -118,6 +119,40 @@ or you can use the default reference to test the installation by type the follow
 ```bash
 bvsim 
 ```
+## <a name="configuration-files-codes"></a>Configuration Files and Codes
+
+### Code Structure Overview
+
+#### Shell Scripts (Runtime Statistics & Workflows)
+| File | Description | 
+|------|-------------|
+| `CSV.sh` | Generate CSV reports with runtime metrics (CSV mode)|
+| `exact.sh` | Precision analysis pipeline (time/memory profiled) (exact mode)|
+| `hg19_whole_time.sh` | Genome-wide benchmark script for hg19 (mimic mode) |
+| `hg38_whole_time.sh` | Genome-wide benchmark script for hg38 (mimic mode)|
+| `uniform_test.sh` | Single-node consistency tests (uniform mode)|
+| `uniform_parallel_test.sh` | Multi-node parallel consistency tests (uniform-parallel mode)|
+| `wave.sh` | Main waveform simulation pipeline (wave mode)|
+| `wave_region.sh` | Specialized TR (Tandem Repeat) waveform analysis  (wave-region mode)|
+
+#### TR Processing Utilities
+| File | Description |
+|------|-------------|
+| `extract_TR_region_hg19.sh` | hg19 TR region extraction |
+| `extract_TR_region_hg38.sh` | hg38 TR region extraction |
+| `extract_sv_to_bed.sh` | Convert SV calls to BED format for visualization |
+| `terminal_commands` | General Linux command snippets for data processing |
+#### Python Modules
+| File | Description |
+|------|-------------|
+| `HG001_substitution_matrix.py` | Calculate nucleotide substitution matrices from HG001 data |
+
+#### Configuration Files
+| File | Description |
+|------|-------------|
+| `bvsim_config.yaml` | 主配置文件 - 控制模拟核心参数 |
+| `custom_config.yaml` | 用户自定义配置模板 |
+
 ## <a name="parameters"></a>Functions and Parameters
 
 Five modes: uniform, uniform parallel, csv, wave, wave_region
