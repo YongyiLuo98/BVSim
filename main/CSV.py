@@ -3241,8 +3241,9 @@ def main():
     #! start variations
     # Call the functions with the assigned variables
     SV_table, VCF_table, unblock_region_sv, SV_loop, VCF_loop, Ins_dic_sv, tem_seq_post = translocation(SV_table, VCF_table, unblock_region_sv, SV_loop, CSV_loop, VCF_loop, Ins_dic_sv, tem_seq_post, sv_trans, condition_dist_sv_trans, len_SV_trans, times, ll_c, len_seg_refine, ratio_b_trans, chr_id)
-    SV_table, VCF_table, unblock_region_sv, SV_loop, VCF_loop, Ins_dic_sv, tem_seq_post = tandem_duplication(SV_table, VCF_table,True_dup_number, unblock_region_sv, SV_loop, VCF_loop, Ins_dic_sv, tem_seq_post, dup_range, times, ll_c, chr_id)
+    
     SV_table, VCF_table, unblock_region_sv, SV_loop, VCF_loop, Ins_dic_sv, tem_seq_post = inversion_process(sv_inver, SV_table, VCF_table, unblock_region_sv, SV_loop, VCF_loop, Ins_dic_sv, tem_seq_post, chr_id, len_seg_refine,ll_c,times,real_con1, condition_dist_sv_inver, len_SV_inver)
+    SV_table, VCF_table, unblock_region_sv, SV_loop, VCF_loop, Ins_dic_sv, tem_seq_post = tandem_duplication(SV_table, VCF_table,True_dup_number, unblock_region_sv, SV_loop, VCF_loop, Ins_dic_sv, tem_seq_post, dup_range, times, ll_c, chr_id)
     #! ID1: TanInvDup (Tandem Inverted Dup), 11 (73.8kb)
     SV_table, VCF_table, unblock_region_sv, SV_loop, VCF_loop, CSV_loop, Ins_dic_sv, tem_seq_post = ID1_TanInvDup_process(unblock_region_sv, True_TanInvDup_number, times, real_con1, SV_table, VCF_table, ll_c, chr_id, tem_seq_post, SV_loop, VCF_loop, CSV_loop, Ins_dic_sv,gaussian_ID1)
     #! ID2: DisInvDup (Dispersed Inverted Dup), 11 (73.8kb)
