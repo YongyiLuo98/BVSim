@@ -242,7 +242,10 @@ bvsim -exact \
 -write -notblockN
 conda deactivate
 ```
-We require the following format for the input '-variant_table'
+We require the following format for the input '-variant_table'. A translocation is defined by two regions, A (Original_start-Original_end) and B (New_start-New_end), either balanced (exchanged, Balanced Trans Flag = 1) or unbalanced (A is lost and B is inserted to A’s start point, Balanced Trans Flag = 0) in the sequence. A duplication is defined by the copied region (Original_start-Original_end) and inserted position (New_start=New_end). An inversion is determined by one region (Original_start=New_start, Original_end = New_end). Each long or small insertion/deletion is defined by the start point and length. In the table, '-1' means unapplicable. We also ensure that the SVs and small variants will not be simulated from the regions related to other variants. Complex SVs combine these simple variants with spatial proximity.
+
+This table's format is identical as the output of other modes (except for VCF mode). The relative positions (last four columns) are not required for 'exact mode'. So, users can utilize the randome generations' output and input some empirical SVs they want. Please pay attention, if your input has overlapped variants, the processing time will be longer. Please ensure your input does not contain any overlapped variants for smooth running.
+
 | Index | Index_con | SV_type        | Original_start | Original_end | Len_SV | New_start | New_end | New_len_SV | Balanced Trans Flag | relative start1 | relative end1 | relative start2 | relative end2 |
 |-------|-----------|----------------|----------------|--------------|--------|-----------|---------|------------|---------------------|-----------------|---------------|------------------|----------------|
 | 0     | 0         | Translocation  | 12612          | 12804        | 193    | 70068     | 70139   | 72         | 1                   | 12611           | 12682         | 70179            | 70371          |
