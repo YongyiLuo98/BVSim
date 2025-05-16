@@ -11,6 +11,7 @@
     - [Write the Relative Positions of Simulated Variations](#write)
     - [User-defined Block Regions with No Variations](#block)
   - [Exact Mode](#exact-mode)
+  - [VCF Mode](#vcf-mode)
   - [Uniform Mode](#uniform-mode)
   - [Complex SV Mode](#complex-sv-mode)
     - [Parameters for CSV Mode](#parameters-for-csv-mode)
@@ -218,6 +219,63 @@ bvsim -seed 1 -rep 1 -write -snp 2000 -block_region_bed_url block_intervals.bed
 ### <a name="exact-mode"></a>Exact Mode
 Users can provide a variant table with target SVs with their length, positions and type. BVSim will simulate the variants with an non-overlapping feature. If some defined variations are overlapped, BVSim will sort them by start positions and discard the latter ones.
 
+#### Toy example (-hg19)
+```bash
+#!/bin/bash
+#SBATCH -J exact
+#SBATCH -N 1 -c 1
+#SBATCH --output=exact_test_out.txt
+#SBATCH --error=exact_test_err.txt
+
+source /opt/share/etc/miniconda3-py39.sh
+conda activate BVSim
+bvsim -exact \
+-ref ~/BVSim/empirical/sub_hg19_chr1.fasta -seq_index 0 \
+-seed 0 -rep 1 \
+-variant_table ~/BVSim/empirical/BV_22_seq_1_SVtable_full.csv \
+-write -notblockN
+conda deactivate
+```
+We require the following format for the input '-variant_table'
+| Index | Index_con | SV_type        | Original_start | Original_end | Len_SV | New_start | New_end | New_len_SV | Balanced Trans Flag | relative start1 | relative end1 | relative start2 | relative end2 |
+|-------|-----------|----------------|----------------|--------------|--------|-----------|---------|------------|---------------------|-----------------|---------------|------------------|----------------|
+| 0     | 0         | Translocation  | 12612          | 12804        | 193    | 70068     | 70139   | 72         | 1                   | 12611           | 12682         | 70179            | 70371          |
+| ...   | ...       | ...            | ...            | ...          | ...    | ...       | ...     | ...        | ...                 | ...             | ...           | ...              | ...            |
+| 4     | 0         | Translocation  | 136841         | 137244       | 404    | 130197    | 130395  | 199        | 1                   | 137788          | 137986        | 130841           | 131244         |
+| 5     | 0         | Inversion      | 59458          | 59511        | 54     | 59458     | 59511   | 54         | -1                  | 59619           | 59672         | -1               | -1             |
+| 6     | 0         | Inversion      | 156931         | 157010       | 80     | 156931    | 157010  | 80         | -1                  | 157613          | 157692        | -1               | -1             |
+| 7     | 0         | Duplication    | 38630          | 38704        | 75     | 76208     | 76208   | 75         | -1                  | 38641           | 38715         | 76441            | 76515          |
+| 8     | 0         | Duplication    | 135854         | 135951       | 98     | 135951    | 135951  | 98         | -1                  | 136703          | 136800        | 136801           | 136898         |
+| 9     | 0         | Deletion       | 27054          | 27105        | 52     | -1        | -1      | -1         | -1                  | -1              | -1            | -1               | -1             |
+| 10    | 0         | Deletion       | 38903          | 38960        | 58     | -1        | -1      | -1         | -1                  | -1              | -1            | -1               | -1             |
+| 11    | 0         | Deletion       | 68108          | 68157        | 50     | -1        | -1      | -1         | -1                  | -1              | -1            | -1               | -1             |
+| 12    | 0         | Deletion       | 144007         | 144066       | 60     | -1        | -1      | -1         | -1                  | -1              | -1            | -1               | -1             |
+| 13    | 0         | Deletion       | 166530         | 166583       | 54     | -1        | -1      | -1         | -1                  | -1              | -1            | -1               | -1             |
+| 14    | 0         | Insertion      | 28137          | 28137        | 182    | -1        | -1      | -1         | -1                  | 27967           | 28148         | -1               | -1             |
+| ...   | ...       | ...            | ...            | ...          | ...    | ...       | ...     | ...        | ...                 | ...             | ...           | ...              | ...            |
+| 18    | 0         | Insertion      | 189262         | 189262       | 350    | -1        | -1      | -1         | -1                  | 189982          | 190331        | -1               | -1             |
+| 19    | 0         | Small_Del      | 7033           | 7033         | 1      | -1        | -1      | -1         | -1                  | -1              | -1            | -1               | -1             |
+| ...   | ...       | ...            | ...            | ...          | ...    | ...       | ...     | ...        | ...                 | ...             | ...           | ...              | ...            |
+| 25    | 0         | Small_Ins      | 163605         | 163605       | 1      | -1        | -1      | -1         | -1                  | 164378          | 164378        | -1               | -1             |
+| 26    | 0         | Substitution   | 8865           | 8865         | 1      | -1        | -1      | -1         | -1                  | 8864            | 8864          | -1               | -1             |
+
+### <a name="vcf-mode"></a>VCF Mode
+```bash
+#!/bin/bash
+#SBATCH -J VCF
+#SBATCH -N 1 -c 1
+#SBATCH --output=VCF_out.txt
+#SBATCH --error=VCF_err.txt
+
+source /opt/share/etc/miniconda3-py39.sh
+conda activate bio
+bvsim -vcf \
+-vcf_file gnomad.v4.1.sv.sites.vcf.gz \
+-save ~/VCF/ \
+-select "FREQ_HET_fin>0.001" -min_len 50 -sv_types DEL INS -chr chr21
+conda deactivate
+```
+Users need to pay attention that after filtering, there are overlapping SVs in the output. So, you may need to select your target SV and delete the overlapped ones.
 ### <a name="uniform-mode"></a>Uniform Mode
 If you do not call any of the following parameters (-csv, -cores, -len_bins, -wave), the simulation will be generated one by one uniformly.
 
@@ -285,8 +343,8 @@ sbatch task01.job
 
 | Parameter | Type | Description | Default |
 | --- | --- | --- | --- |
-| `-cores` | int | Number of kernels for parallel processing | 1 |
-| `-len_bins` | int | Length of bins for parallel processing | 50000 |
+| `-cores` | int | Number of kernels for parallel processing (positive integer, required for uniform-parallel/wave/wave-region mode to set up parallel computing) | 1 |
+| `-len_bins` | int | Length of bins for parallel processing, must be positive integer and smaller than reference length (required for uniform-parallel/wave/wave-region mode to set up parallel computing) | 50000 |
 
 ### <a name="wave-mode"></a>Wave Mode
 
@@ -440,13 +498,13 @@ Ensure that both the single sample and multiple sample BED files are placed in t
 
 | Parameter | Type | Description | Default |
 | --- | --- | --- | --- |
-| `-cores` | int | Number of kernels for parallel processing | 1 |
-| `-len_bins` | int | Length of bins for parallel processing | 50000 |
+| `-cores` | int | Number of kernels for parallel processing (positive integer, required for uniform-parallel/wave/wave-region mode to set up parallel computing) | 1 |
+| `-len_bins` | int | Length of bins for parallel processing, must be positive integer and smaller than reference length (required for uniform-parallel/wave/wave-region mode to set up parallel computing) | 50000 |
 | `-wave` | bool | Run Wave.py script | False |
-| `-mode` | str | Mode for calculating probabilities | 'probability' |
-| `-sum` | bool | Total indel SV equals sum of the input bed | False |
-| `-indel_input_bed` | str | Input single BED file | None |
-| `-file_list` | str | Input list of multiple BED files | None |
+| `-mode` | str | Mode for calculating probabilities (empirical/probability)| 'probability' |
+| `-sum` | bool | Total indel SV equals sum of the input (single sample) or mean of the input (multiple samples) | False |
+| `-indel_input_bed` | str | Input BED file for indels (required if input single sample for wave or wave-region mode) | None |
+| `-file_list` | str | List of sample files (e.g. NA19240_chr21.bed, HG02818_chr21.bed, NA19434_chr21.bed in empirical folder) (required if multiple samples for wave or wave-region mode) | None |
 
 ##### Mode and Sum Parameters
 
@@ -510,17 +568,16 @@ sbatch task03.job
 The table below summarizes the parameters available for Wave region mode:
 | Parameter | Type | Description | Default |
 | --- | --- | --- | --- |
-| `-cores` | int | Number of kernels for parallel processing | 1 |
-| `-len_bins` | int | Length of bins for parallel processing | 50000 |
-| `-wave` | bool | Run Wave.py script | False |
-| `-mode` | str | Mode for calculating probabilities | 'probability' |
-| `-sum` | bool | Total number of insertions and deletions equals sum of the input bed | False |
-| `-indel_input_bed` | str | Input single BED file | None |
-| `-file_list` | str | Input list of multiple BED files | None |
+| `-cores` | int | Number of kernels for parallel processing (positive integer, required for uniform-parallel/wave/wave-region mode to set up parallel computing) | 1 |
+| `-len_bins` | int | Length of bins for parallel processing, must be positive integer and smaller than reference length (required for uniform-parallel/wave/wave-region mode to set up parallel computing) | 50000 |
+| `-mode` | str | Mode for calculating probabilities (empirical/probability)| 'probability' |
+| `-sum` | bool | Total indel SV equals sum of the input (single sample) or mean of the input (multiple samples) | False |
+| `-indel_input_bed` | str | Input BED file for indels (required if input single sample for wave or wave-region mode) | None |
+| `-file_list` | str | List of sample files (e.g. NA19240_chr21.bed, HG02818_chr21.bed, NA19434_chr21.bed in empirical folder) (required if multiple samples for wave or wave-region mode) | None |
 | `-wave_region` | bool | Run Wave_TR.py script | False |
-| `-p_del_region` | float | Probability of SV DEL (between 0 and 1) in the user-defined region for deletion | 0.5 |
-| `-p_ins_region` | float | Probability of SV INS (between 0 and 1) in the user-defined region for insertion | 0.5 |
-| `-region_bed_url` | str | Path of the BED file for the user-defined region | 'your_home_path/hg002/chr21_TR_unique.bed' |
+| `-p_del_region` | float | Probability of SV DEL (between 0 and 1) in the user-defined region for deletion (required for wave-region mode)| 0.5 |
+| `-p_ins_region` | float | Probability of SV INS (between 0 and 1) in the user-defined region for insertion (required for wave-region mode)| 0.5 |
+| `-region_bed_url` | str | Path of the BED file for the user-defined region (required for wave-region mode)| None |
 
 ### <a name="human-genome"></a>Human Genome
 For the human genome, we derive the length distributions of SVs from HG002 and the 15 representative samples. For SNPs, we embed a learned substitution transition matrix from the dbSNP database. With a user-specified bin size, BVSim learns the distribution of SV positions per interval. It can model the SVs per interval as a multinomial distribution parameterized by the observed frequencies in HG002 (GRCh37/hg19 as reference) or sample the SV numbers per interval from a Gaussian distribution with the mean and standard deviation computed across the 15 samples (GRCh38/hg38 as reference). Calling ‘-hg19’ or ‘-hg38’ and specifying the chromosome name can activate the above procedures automatically for the human genome.
