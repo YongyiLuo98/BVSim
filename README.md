@@ -219,7 +219,13 @@ bvsim -seed 1 -rep 1 -write -snp 2000 -block_region_bed_url block_intervals.bed
 ### <a name="exact-mode"></a>Exact Mode
 Users can provide a variant table with target SVs with their length, positions and type. BVSim will simulate the variants with an non-overlapping feature. If some defined variations are overlapped, BVSim will sort them by start positions and discard the latter ones.
 
-#### Toy example (-hg19)
+| Parameter | Type | Description | Default |
+| --- | --- | --- | --- |
+| `-exact` | T/F | Generate exact variants from input table | False |
+| `-variant_table` | str | Path to variant table CSV file (required for exact mode) | None |
+| `-validate_only` | T/F | Only validate input without generating variants| False |
+
+#### Toy example (exact mode)
 ```bash
 #!/bin/bash
 #SBATCH -J exact
@@ -241,6 +247,7 @@ We require the following format for the input '-variant_table'
 |-------|-----------|----------------|----------------|--------------|--------|-----------|---------|------------|---------------------|-----------------|---------------|------------------|----------------|
 | 0     | 0         | Translocation  | 12612          | 12804        | 193    | 70068     | 70139   | 72         | 1                   | 12611           | 12682         | 70179            | 70371          |
 | ...   | ...       | ...            | ...            | ...          | ...    | ...       | ...     | ...        | ...                 | ...             | ...           | ...              | ...            |
+| 3     | 0         | Translocation  | 128154         | 128326       | 173    | 96305     | 96305   | 173        | 0                   | 128971          | 128971        | 96989            | 97161          |
 | 4     | 0         | Translocation  | 136841         | 137244       | 404    | 130197    | 130395  | 199        | 1                   | 137788          | 137986        | 130841           | 131244         |
 | 5     | 0         | Inversion      | 59458          | 59511        | 54     | 59458     | 59511   | 54         | -1                  | 59619           | 59672         | -1               | -1             |
 | 6     | 0         | Inversion      | 156931         | 157010       | 80     | 156931    | 157010  | 80         | -1                  | 157613          | 157692        | -1               | -1             |
