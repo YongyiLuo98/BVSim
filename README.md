@@ -51,6 +51,7 @@ pip install -e .
 
 # Verify the installation
 conda activate BVSim
+which bvsim
 bvsim --help
 bvsim -h
 
@@ -79,19 +80,14 @@ bvsim -seed 1 -rep 1 -write -snp 2000 -block_region_bed_url block_intervals.bed
 ### Create an envrionment called BVSim and install the dependencies
 To start with, you need to install the dependent packages in an environment, for example called BVSim.
 ```bash
-# Create an envrionment called BVSim and install the dependencies
-conda create -n BVSim python=3.11 numpy pandas biopython scipy seaborn psutil
+# Create an envrionment called BVSim and install the dependencies from the provided environment.yml file
+conda env create -f environment.yml
 conda activate BVSim
-# Run the following to install pysam or use the latest guide
-conda config --add channels defaults
-conda config --add channels conda-forge
-conda config --add channels bioconda
-conda install pysam
 ```
 ### Clone the Repository
 Next, you need to clone the BVSim repository to your local machine. Execute the following command in your home directory:
 ```bash
-cd your_home_path
+cd ~
 git clone https://github.com/YongyiLuo98/BVSim.git
 ```
 ### Navigate to the Main Directory and Install the Package
@@ -100,10 +96,13 @@ Next, navigate to the .../BVSim/main/ directory to install the package:
 cd ~/BVSim/
 conda activate BVSim
 pip install -e .
+conda deactivate
 ```
 ### Verify the Installation
-After installation, you can verify it from your home directory. Execute the following commands:
+After installation, you can verify it from your BVSim conda environment. Execute the following commands:
 ```bash
+conda activate BVSim
+which bvsim
 bvsim --help
 bvsim -h
 ```
@@ -127,12 +126,13 @@ The BVSim package provides several functions (modes) and parameters for simulati
 
 | Parameter | Type | Description | Default | 
 | --- | --- | --- | --- |
-| `-ref` | str | Input reference file | '.../BVSim/empirical/sub_hg19_chr1.fasta' |
-| `-save` | str | Saving path | .../BVSim/save/ |
+| `-config` | str | Path to YAML configuration file | '~/BVSim/code/bvsim_config.yaml' |
+| `-ref` | str | Input reference file | '~/BVSim/empirical/sub_hg19_chr1.fasta' |
+| `-seq_index` | int | Index of sequence to use (0-based), must be an integer within the range of provided FASTA file. Default: 0 (first sequence) | 0 |
+| `-save` | str | Saving path | '~/BVSim/save/' |
 | `-seed` | int | Global seed for random number generator (non-negative integer) | 999 |
 | `-times` | int | Maximum sampling times (positive integer) | 10 |
 | `-rep` | int | Replication ID (non-negative integer for naming the files) | 99 |
-| `-seq_index` | int | Index of sequence to use (0-based), must be an integer within the range of provided FASTA file. Default: 0 (first sequence) | 0 |
 | `-sv_trans` | int | Number of trans SV (non-negative integer) | 5 |
 | `-sv_inver` | int | Number of inversion SV (non-negative integer) | 5 |
 | `-sv_dup` | int | Number of tandem duplication (non-negative integer) | 5 |
@@ -143,18 +143,16 @@ The BVSim package provides several functions (modes) and parameters for simulati
 | `-snv_ins` | float | SNV insertion number (non-negative integer) or probability (between 0 and 1) | 5 |
 | `-notblockN` | bool | Do not Block N positions | False |
 | `-write` | bool | Write full results | False |
-| `-delmin` | int | Minimum deletion length | 50 |
-| `-delmax` | int | Maximum deletion length | 60 |
-| `-insmin` | int | Minimum insertion length | 50 |
-| `-insmax` | int | Maximum insertion length | 450 |
-| `-dupmin` | int | Minimum duplication length | 50 |
-| `-dupmax` | int | Maximum duplication length | 450 |
-| `-invmin` | int | Minimum inversion length | 50 |
-| `-invmax` | int | Maximum inversion length | 450 |
-| `-dupmin` | int | Minimum duplication length | 50 |
-| `-dupmax` | int | Maximum duplication length | 450 |
-| `-transmin` | int | Minimum translocation length | 50 |
-| `-transmax` | int | Maximum translocation length | 450 |
+| `-delmin` | int | Minimum deletion length (integer, not smaller than 50) | 50 |
+| `-delmax` | int | Maximum deletion length (integer, larger than delmin) | 60 |
+| `-insmin` | int | Minimum insertion length (integer, not smaller than 50) | 50 |
+| `-insmax` | int | Maximum insertion length (integer, larger than insmin) | 450 |
+| `-dupmin` | int | Minimum duplication length (integer, not smaller than 50) | 50 |
+| `-dupmax` | int | Maximum duplication length (integer, larger than dupmin) | 450 |
+| `-invmin` | int | Minimum inversion length (integer, not smaller than 50) | 50 |
+| `-invmax` | int | Maximum inversion length (integer, larger than invmin) | 450 |
+| `-transmin` | int | Minimum translocation lengthMinimum translocation length (integer, not smaller than 50) | 50 |
+| `-transmax` | int | Maximum translocation lengthMaximum translocation length (integer, larger than transmin) | 450 |
 | `-block_region_bed_url` | str | local path of the block region BED file | None |
 
 #### <a name="output"></a>Output Naming Conventions
@@ -196,7 +194,6 @@ If you choose not to generate the relative positions during the initial simulati
 1. **Run the Initial Simulation**:  
 For example, you can execute:
 ```bash
-cd your_home_path
 bvsim -seed 1 -rep 1 -snp 2000
 ```
 In this case you generated default number of elementary SVs and micro indels, as well as 20000 SNPs saved in the default directory with `BV_1_seq_chr1_SVtable.csv`, `BV_1_seq_chr1_tem_ins_dic.npy`.
@@ -204,7 +201,7 @@ In this case you generated default number of elementary SVs and micro indels, as
 2. **Update Relative Positions**:
 You can then run the following command to generate a table with the relative positions:
 ```bash
-python your_home_path/BVSim/main/write_SV.py your_home_path/BVSim/save/ BV_1_seq_chr1_SVtable.csv BV_1_seq_chr1_tem_ins_dic.npy
+python ~/BVSim/main/write_SV.py ~/BVSim/save/ BV_1_seq_chr1_SVtable.csv BV_1_seq_chr1_tem_ins_dic.npy
 ```
 This command will create a file called called `full_BV_1_seq_chr1_SVtable.csv` in the same directory, which will contain the relative positions for all variations with respect to the consensus sequence.
 By following this naming convention and steps, you can easily manage and update your output files as needed.
@@ -213,7 +210,7 @@ The input of the '-block_region_bed_url' should be two columns of positions(star
 
 #### Toy Example:
 ```bash
-cd your_home_path
+cd ~
 echo -e "0\t1000\n3000\t4000" > block_intervals.bed
 # uniform.py
 bvsim -seed 1 -rep 1 -write -snp 2000 -block_region_bed_url block_intervals.bed
@@ -252,17 +249,17 @@ Add -csv to your command, 18 types of Complex Structure Variations can be genera
 * ID18: Insertion with Deletion (INSdel)
 #### Toy Example (CSV mode):
 ```bash
-bvsim -ref 'your_home_path/BVSim/empirical/sub_hg19_chr1.fasta' -save your_saving_url -seed 1 -rep 1 -csv -write -snp 2000
+bvsim -ref '~/BVSim/empirical/sub_hg19_chr1.fasta' -save your_saving_url -seed 1 -rep 1 -csv -write -snp 2000
 ```
 #### <a name="parameters-for-csv-mode"></a>Parameters for CSV Mode
 The lengths of the CSVs follow different Gaussian distributions with modifiable means (-mu) and standard deviations (-sigma).
 | Parameter | Type | Description | Default |
 | --- | --- | --- | --- |
-| `-csv_num` | int | Number for each type of CSV, superior to -csv_total_num | 0 |
-| `-csv_total_num` | int | Total number for CSV, assign number of each type by empirical weights | 0 |
-| `-num_ID1_csv to -num_ID18_csv` | int | Number of respective CSV types | 5 |
-| `-mu_ID1 to -mu_ID18` | int | Mean of Gaussian distribution of CSV length | 1000 |
-| `-sigma_ID1 to -sigma_ID18` | int | Standard deviation of Gaussian distribution of CSV length | 100 |
+| `-csv_num` | int | Number for each type of CSV (non-negative integer), superior to -csv_total_num | 0 |
+| `-csv_total_num` | int | Total number for CSV (non-negative integer), assign number of each type by empirical weights | 0 |
+| `-num_ID1_csv to -num_ID18_csv` | int | Number of respective CSV types (non-negative integer)| 5 |
+| `-mu_ID1 to -mu_ID18` | int | Mean of Gaussian distribution of CSV length (integer, larger than 100)| 1000 |
+| `-sigma_ID1 to -sigma_ID18` | int | Standard deviation of Gaussian distribution of CSV length (non-negative integer)| 100 |
 
 ### <a name="uniform-parallel-mode"></a>Uniform Parallel Mode
 Add -cores, -len_bins to your command, and write a .job file (task01.job) as follows (-c 5 means 5 cores, should be the same as -cores 5), parallel simulation will be allowed.
@@ -548,7 +545,7 @@ conda deactivate
 To update to the latest version of BVSim, you can uninstall and delete the cloned files. Then, try to clone from the new repository and install again.
 ```bash
 conda activate BVSim
-pip uninstall BVSim
+pip uninstall bvsim
 ```
 ## <a name="workflow"></a>Workflow of BVSim
 The following figure illustrates the workflow of BVSim, encapsulated within a dashed box, and demonstrates how the output files interact with read simulators, the alignment tool Minimap2, Samtools, and evaluation tools.
