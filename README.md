@@ -7,19 +7,12 @@
 - [Installation](#installation)
 - [Configuration Files and CodesInstallation](#configuration-files-codes)
 - [General Functions and Parameters](#parameters)
-  - [Shared Parameters](#shared-parameters)
+  - [Shared Parameters for Simulation Modes](#shared-parameters)
     - [Output Naming Conventions](#output)
     - [Write the Relative Positions of Simulated Variations](#write)
     - [User-defined Block Regions with No Variations](#block)
   - [Mimic Mode](#human-genome)
     - [Parameters for Mimic Mode](#parameters-for-mimic-mode)
-  - [Exact Mode](#exact-mode)
-   - [Parameters for Exact Mode](#parameters-for-exact-mode)
-  - [Complex SV Mode](#complex-sv-mode)
-    - [Parameters for CSV Mode](#parameters-for-csv-mode)
-  - [Uniform Mode](#uniform-mode)
-  - [Uniform Parallel Mode](#uniform-parallel-mode)
-    - [Parameters for Uniform parallel Mode](#parameters-for-uniform-parallel-mode)
   - [Wave Mode](#wave-mode)
     - [User-defined Sample(s) and Input BED File Requirements](#requirements-for-the-bed-file)
     - [Generate a BED File for a Single Sample](#generating-a-bed-file-for-a-single-sample-in-wave-mode)
@@ -32,8 +25,15 @@
     - [Extract User-defined Regions (e.g. TR region) and Generate the BED File](#step-1-extract-tr-regions)
     - [Job Submission for Single Sample (BED Format)](#job-submission-for-wave-region-mode-single-sample)
     - [Parameters for Wave Region Mode](#parameters-for-wave-region-mode)
-  - [VCF Mode for Preprocessing](#vcf-mode)
-    - [Parameters for VCF Preprocessing](#parameters-for-VCF-mode)
+  - [Complex SV Mode](#complex-sv-mode)
+    - [Parameters for CSV Mode](#parameters-for-csv-mode)
+  - [Uniform Mode](#uniform-mode)
+  - [Uniform Parallel Mode](#uniform-parallel-mode)
+    - [Parameters for Uniform parallel Mode](#parameters-for-uniform-parallel-mode)
+  - [Exact Mode](#exact-mode)
+   - [Parameters for Exact Mode](#parameters-for-exact-mode)
+- [VCF Mode for Preprocessing](#vcf-mode)
+  - [Parameters for VCF Preprocessing](#parameters-for-VCF-mode)
 - [Uninstallation for Updates](#uninstallation)
 - [Workflow of BVSim](#workflow)
 - [Definitions of SVs Simulated by BVSim](#definitions)
@@ -158,9 +158,9 @@ bvsim
 
 ## <a name="parameters"></a>Functions and Parameters
 
-Five modes: uniform, uniform parallel, csv, wave, wave_region
+Seven sequence simulation modes: mimic, wave, wave_region, csv, uniform, uniform parallel, exact
 
-### <a name="shared-parameters"></a>Shared Parameters
+### <a name="shared-parameters"></a>Shared Parameters for Simulation Modes
 The BVSim package provides several functions (modes) and parameters for simulating genetic variations. Here is a table that introduces all the functions and different parameters:
 
 | Parameter | Type | Description | Default | 
@@ -295,137 +295,6 @@ bvsim -mimic \
 -region_bed_url /home/project18/data/test_data/TGS/hg002/chr21_TR_unique.bed -delmin 50 -delmax 2964912 -insmin 50 -insmax 187524
 conda deactivate
 ```
-
-### <a name="exact-mode"></a>Exact Mode
-Users can provide a variant table with target SVs with their length, positions and type. BVSim will simulate the variants with an non-overlapping feature. If some defined variations are overlapped, BVSim will sort them by start positions and discard the latter ones.
-#### <a name="parameters-for-Exact-mode"></a>Parameters for Exact Mode
-| Parameter | Type | Description | Default |
-| --- | --- | --- | --- |
-| `-exact` | T/F | Generate exact variants from input table | False |
-| `-variant_table` | str | Path to variant table CSV file (required for exact mode) | None |
-| `-validate_only` | T/F | Only validate input without generating variants| False |
-
-#### Toy example (exact mode)
-```bash
-#!/bin/bash
-#SBATCH -J exact
-#SBATCH -N 1 -c 1
-#SBATCH --output=exact_test_out.txt
-#SBATCH --error=exact_test_err.txt
-
-source /opt/share/etc/miniconda3-py39.sh
-conda activate BVSim
-bvsim -exact \
--ref ~/BVSim/empirical/sub_hg19_chr1.fasta -seq_index 0 \
--seed 0 -rep 1 \
--variant_table ~/BVSim/empirical/BV_22_seq_1_SVtable_full.csv \
--write -notblockN
-conda deactivate
-```
-We require the following format for the input '-variant_table'. A translocation is defined by two regions, A (Original_start-Original_end) and B (New_start-New_end), either balanced (exchanged, Balanced Trans Flag = 1) or unbalanced (A is lost and B is inserted to A’s start point, Balanced Trans Flag = 0) in the sequence. A duplication is defined by the copied region (Original_start-Original_end) and inserted position (New_start=New_end). An inversion is determined by one region (Original_start=New_start, Original_end = New_end). Each long or small insertion/deletion is defined by the start point and length. In the table, '-1' means unapplicable. We also ensure that the SVs and small variants will not be simulated from the regions related to other variants. Complex SVs combine these simple variants with spatial proximity.
-
-This table's format is identical as the output of other modes (except for VCF mode). The relative positions (last four columns) are not required for 'exact mode'. So, users can utilize the randome generations' output and input some empirical SVs they want. Please pay attention, if your input has overlapped variants, the processing time will be longer. Please ensure your input does not contain any overlapped variants for smooth running.
-
-See the complete file in the ~/BVSim/empirical/BV_22_seq_1_SVtable_full.csv.
-| Index | Index_con | SV_type        | Original_start | Original_end | Len_SV | New_start | New_end | New_len_SV | Balanced Trans Flag | relative start1 | relative end1 | relative start2 | relative end2 |
-|-------|-----------|----------------|----------------|--------------|--------|-----------|---------|------------|---------------------|-----------------|---------------|------------------|----------------|
-| 0     | 0         | Translocation  | 12612          | 12804        | 193    | 70068     | 70139   | 72         | 1                   | 12611           | 12682         | 70179            | 70371          |
-| ...   | ...       | ...            | ...            | ...          | ...    | ...       | ...     | ...        | ...                 | ...             | ...           | ...              | ...            |
-| 3     | 0         | Translocation  | 128154         | 128326       | 173    | 96305     | 96305   | 173        | 0                   | 128971          | 128971        | 96989            | 97161          |
-| 4     | 0         | Translocation  | 136841         | 137244       | 404    | 130197    | 130395  | 199        | 1                   | 137788          | 137986        | 130841           | 131244         |
-| 5     | 0         | Inversion      | 59458          | 59511        | 54     | 59458     | 59511   | 54         | -1                  | 59619           | 59672         | -1               | -1             |
-| 6     | 0         | Inversion      | 156931         | 157010       | 80     | 156931    | 157010  | 80         | -1                  | 157613          | 157692        | -1               | -1             |
-| 7     | 0         | Duplication    | 38630          | 38704        | 75     | 76208     | 76208   | 75         | -1                  | 38641           | 38715         | 76441            | 76515          |
-| 8     | 0         | Duplication    | 135854         | 135951       | 98     | 135951    | 135951  | 98         | -1                  | 136703          | 136800        | 136801           | 136898         |
-| 9     | 0         | Deletion       | 27054          | 27105        | 52     | -1        | -1      | -1         | -1                  | -1              | -1            | -1               | -1             |
-| 10    | 0         | Deletion       | 38903          | 38960        | 58     | -1        | -1      | -1         | -1                  | -1              | -1            | -1               | -1             |
-| 11    | 0         | Deletion       | 68108          | 68157        | 50     | -1        | -1      | -1         | -1                  | -1              | -1            | -1               | -1             |
-| 12    | 0         | Deletion       | 144007         | 144066       | 60     | -1        | -1      | -1         | -1                  | -1              | -1            | -1               | -1             |
-| 13    | 0         | Deletion       | 166530         | 166583       | 54     | -1        | -1      | -1         | -1                  | -1              | -1            | -1               | -1             |
-| 14    | 0         | Insertion      | 28137          | 28137        | 182    | -1        | -1      | -1         | -1                  | 27967           | 28148         | -1               | -1             |
-| ...   | ...       | ...            | ...            | ...          | ...    | ...       | ...     | ...        | ...                 | ...             | ...           | ...              | ...            |
-| 18    | 0         | Insertion      | 189262         | 189262       | 350    | -1        | -1      | -1         | -1                  | 189982          | 190331        | -1               | -1             |
-| 19    | 0         | Small_Del      | 7033           | 7033         | 1      | -1        | -1      | -1         | -1                  | -1              | -1            | -1               | -1             |
-| ...   | ...       | ...            | ...            | ...          | ...    | ...       | ...     | ...        | ...                 | ...             | ...           | ...              | ...            |
-| 25    | 0         | Small_Ins      | 163605         | 163605       | 1      | -1        | -1      | -1         | -1                  | 164378          | 164378        | -1               | -1             |
-| 26    | 0         | Substitution   | 8865           | 8865         | 1      | -1        | -1      | -1         | -1                  | 8864            | 8864          | -1               | -1             |
-
-
-### <a name="complex-sv-mode"></a>Complex SV Mode
-Add -csv to your command, 18 types of Complex Structure Variations can be generated.
-
-* ID1: Tandem Inverted Duplication (TanInvDup)
-* ID2: Dispersed Inverted Duplication (DisInvDup)
-* ID3: Dispersed Duplication (DisDup)
-* ID4: Inversion with 5’ or 3’ Flanking Deletion (DEL+INV/INV+DEL)
-* ID5: 5’ Deletion and Dispersed Inverted Duplication (DEL+DisInvDup)
-* ID6: 5’ Deletion and Dispersed Duplication (DEL+DisDup)
-* ID7: Tandem Duplication and 3’ Deletion (TanDup+DEL)
-* ID8: Tandem Inverted Duplication and 3’ Deletion (TanInvDup+DEL)
-* ID9: Tandem Duplication, Deletion and Inversion (TanDup+DEL+INV)
-* ID10: Tandem Inverted Duplication, Deletion and Inversion (TanInvDup+DEL+INV)
-* ID11: Paired-Deletion Inversion (DEL+INV+DEL)
-* ID12: Inversion with 5’ Flanking Duplication (DUP+INV)
-* ID13: Inversion with 3’ Flanking Duplication (INV+DUP)
-* ID14: Paired-Duplication Inversion (DUP+INV+DUP)
-* ID15: Inversion with 5’ Flanking Duplication and 3’ Flanking Deletion (DUP+INV+DEL)
-* ID16: Inversion with 5’ Flanking Deletion and 3’ Flanking Duplication (DEL+INV+DUP)
-* ID17: Inverted Duplication with Flanking Triplication (DupTripDup-INV)
-* ID18: Insertion with Deletion (INSdel)
-#### Toy Example (CSV mode):
-```bash
-bvsim -ref '~/BVSim/empirical/sub_hg19_chr1.fasta' -save your_saving_url -seed 1 -rep 1 -csv -write -snp 2000
-```
-#### <a name="parameters-for-csv-mode"></a>Parameters for CSV Mode
-The lengths of the CSVs follow different Gaussian distributions with modifiable means (-mu) and standard deviations (-sigma).
-| Parameter | Type | Description | Default |
-| --- | --- | --- | --- |
-| `-csv` | T/F | Run csv.py script | False |
-| `-csv_num` | int | Number for each type of CSV (non-negative integer), superior to -csv_total_num | 0 |
-| `-csv_total_num` | int | Total number for CSV (non-negative integer), assign number of each type by empirical weights | 0 |
-| `-num_ID1_csv to -num_ID18_csv` | int | Number of respective CSV types (non-negative integer)| 5 |
-| `-mu_ID1 to -mu_ID18` | int | Mean of Gaussian distribution of CSV length (integer, larger than 100)| 1000 |
-| `-sigma_ID1 to -sigma_ID18` | int | Standard deviation of Gaussian distribution of CSV length (non-negative integer)| 100 |
-
-### <a name="uniform-mode"></a>Uniform Mode
-If you call "-uniform", the simulation will be generated one by one uniformly.
-| Parameter | Type | Description | Default |
-| --- | --- | --- | --- |
-| `-uniform` | T/F | Uniform distribution mode | False |
-#### Toy Example (Uniform mode):
-```bash
-conda activate BVSim
-bvsim -ref 'hg19_chr1.fasta' -uniform -seed 0 -rep 0 -write -snp 2000
-```
-
-### <a name="uniform-parallel-mode"></a>Uniform Parallel Mode
-Add "-uniform" and specify "-cores" and "-len_bins" to your command, and write a .job file (task01.job) as follows (-c 5 means 5 cores, should be the same as -cores 5), parallel simulation will be allowed.
-
-#### Toy Example (Uniform-parallel mode): task01.job
-```bash
-#!/bin/bash
-#SBATCH -J uniform_parallel
-#SBATCH -N 1 -c 5
-#SBATCH --output=output.txt
-#SBATCH --error=err.txt
-
-source /opt/share/etc/miniconda3-py39.sh
-conda activate BVSim
-bvsim -uniform -ref ~/hg19_chr21.fasta -save ~/BVSim/task03/ \
--cores 5 -len_bins 500000 -rep 3 -snp 200 -snv_del 200 -snv_ins 200 -write
-conda deactivate
-```
-Submit the job file by:
-```bash
-sbatch task01.job
-```
-#### <a name="parameters-for-uniform-parallel-mode"></a>Parameters for Uniform parallel Mode
-
-| Parameter | Type | Description | Default |
-| --- | --- | --- | --- |
-| `-uniform` | T/F | Uniform distribution mode | False |
-| `-cores` | int | Number of kernels for parallel processing (positive integer, required for uniform-parallel/wave/wave-region mode to set up parallel computing) | 1 |
-| `-len_bins` | int | Length of bins for parallel processing, must be positive integer and smaller than reference length (required for uniform-parallel/wave/wave-region mode to set up parallel computing) | 50000 |
 
 ### <a name="wave-mode"></a>Wave Mode
 
@@ -661,6 +530,141 @@ The table below summarizes the parameters available for Wave region mode:
 | `-p_del_region` | float | Probability of SV DEL (between 0 and 1) in the user-defined region for deletion (required for wave-region mode)| 0.5 |
 | `-p_ins_region` | float | Probability of SV INS (between 0 and 1) in the user-defined region for insertion (required for wave-region mode)| 0.5 |
 | `-region_bed_url` | str | Path of the BED file for the user-defined region (required for wave-region mode)| None |
+
+
+### <a name="exact-mode"></a>Exact Mode
+Users can provide a variant table with target SVs with their length, positions and type. BVSim will simulate the variants with an non-overlapping feature. If some defined variations are overlapped, BVSim will sort them by start positions and discard the latter ones.
+#### <a name="parameters-for-Exact-mode"></a>Parameters for Exact Mode
+| Parameter | Type | Description | Default |
+| --- | --- | --- | --- |
+| `-exact` | T/F | Generate exact variants from input table | False |
+| `-variant_table` | str | Path to variant table CSV file (required for exact mode) | None |
+| `-validate_only` | T/F | Only validate input without generating variants| False |
+
+
+### <a name="complex-sv-mode"></a>Complex SV Mode
+Add -csv to your command, 18 types of Complex Structure Variations can be generated.
+
+* ID1: Tandem Inverted Duplication (TanInvDup)
+* ID2: Dispersed Inverted Duplication (DisInvDup)
+* ID3: Dispersed Duplication (DisDup)
+* ID4: Inversion with 5’ or 3’ Flanking Deletion (DEL+INV/INV+DEL)
+* ID5: 5’ Deletion and Dispersed Inverted Duplication (DEL+DisInvDup)
+* ID6: 5’ Deletion and Dispersed Duplication (DEL+DisDup)
+* ID7: Tandem Duplication and 3’ Deletion (TanDup+DEL)
+* ID8: Tandem Inverted Duplication and 3’ Deletion (TanInvDup+DEL)
+* ID9: Tandem Duplication, Deletion and Inversion (TanDup+DEL+INV)
+* ID10: Tandem Inverted Duplication, Deletion and Inversion (TanInvDup+DEL+INV)
+* ID11: Paired-Deletion Inversion (DEL+INV+DEL)
+* ID12: Inversion with 5’ Flanking Duplication (DUP+INV)
+* ID13: Inversion with 3’ Flanking Duplication (INV+DUP)
+* ID14: Paired-Duplication Inversion (DUP+INV+DUP)
+* ID15: Inversion with 5’ Flanking Duplication and 3’ Flanking Deletion (DUP+INV+DEL)
+* ID16: Inversion with 5’ Flanking Deletion and 3’ Flanking Duplication (DEL+INV+DUP)
+* ID17: Inverted Duplication with Flanking Triplication (DupTripDup-INV)
+* ID18: Insertion with Deletion (INSdel)
+#### Toy Example (CSV mode):
+```bash
+bvsim -ref '~/BVSim/empirical/sub_hg19_chr1.fasta' -save your_saving_url -seed 1 -rep 1 -csv -write -snp 2000
+```
+#### <a name="parameters-for-csv-mode"></a>Parameters for CSV Mode
+The lengths of the CSVs follow different Gaussian distributions with modifiable means (-mu) and standard deviations (-sigma).
+| Parameter | Type | Description | Default |
+| --- | --- | --- | --- |
+| `-csv` | T/F | Run csv.py script | False |
+| `-csv_num` | int | Number for each type of CSV (non-negative integer), superior to -csv_total_num | 0 |
+| `-csv_total_num` | int | Total number for CSV (non-negative integer), assign number of each type by empirical weights | 0 |
+| `-num_ID1_csv to -num_ID18_csv` | int | Number of respective CSV types (non-negative integer)| 5 |
+| `-mu_ID1 to -mu_ID18` | int | Mean of Gaussian distribution of CSV length (integer, larger than 100)| 1000 |
+| `-sigma_ID1 to -sigma_ID18` | int | Standard deviation of Gaussian distribution of CSV length (non-negative integer)| 100 |
+
+### <a name="uniform-mode"></a>Uniform Mode
+If you call "-uniform", the simulation will be generated one by one uniformly.
+| Parameter | Type | Description | Default |
+| --- | --- | --- | --- |
+| `-uniform` | T/F | Uniform distribution mode | False |
+#### Toy Example (Uniform mode):
+```bash
+conda activate BVSim
+bvsim -ref 'hg19_chr1.fasta' -uniform -seed 0 -rep 0 -write -snp 2000
+```
+
+### <a name="uniform-parallel-mode"></a>Uniform Parallel Mode
+Add "-uniform" and specify "-cores" and "-len_bins" to your command, and write a .job file (task01.job) as follows (-c 5 means 5 cores, should be the same as -cores 5), parallel simulation will be allowed.
+
+#### Toy Example (Uniform-parallel mode): task01.job
+```bash
+#!/bin/bash
+#SBATCH -J uniform_parallel
+#SBATCH -N 1 -c 5
+#SBATCH --output=output.txt
+#SBATCH --error=err.txt
+
+source /opt/share/etc/miniconda3-py39.sh
+conda activate BVSim
+bvsim -uniform -ref ~/hg19_chr21.fasta -save ~/BVSim/task03/ \
+-cores 5 -len_bins 500000 -rep 3 -snp 200 -snv_del 200 -snv_ins 200 -write
+conda deactivate
+```
+Submit the job file by:
+```bash
+sbatch task01.job
+```
+#### <a name="parameters-for-uniform-parallel-mode"></a>Parameters for Uniform parallel Mode
+
+| Parameter | Type | Description | Default |
+| --- | --- | --- | --- |
+| `-uniform` | T/F | Uniform distribution mode | False |
+| `-cores` | int | Number of kernels for parallel processing (positive integer, required for uniform-parallel/wave/wave-region mode to set up parallel computing) | 1 |
+| `-len_bins` | int | Length of bins for parallel processing, must be positive integer and smaller than reference length (required for uniform-parallel/wave/wave-region mode to set up parallel computing) | 50000 |
+
+
+#### Toy example (exact mode)
+```bash
+#!/bin/bash
+#SBATCH -J exact
+#SBATCH -N 1 -c 1
+#SBATCH --output=exact_test_out.txt
+#SBATCH --error=exact_test_err.txt
+
+source /opt/share/etc/miniconda3-py39.sh
+conda activate BVSim
+bvsim -exact \
+-ref ~/BVSim/empirical/sub_hg19_chr1.fasta -seq_index 0 \
+-seed 0 -rep 1 \
+-variant_table ~/BVSim/empirical/BV_22_seq_1_SVtable_full.csv \
+-write -notblockN
+conda deactivate
+```
+We require the following format for the input '-variant_table'. A translocation is defined by two regions, A (Original_start-Original_end) and B (New_start-New_end), either balanced (exchanged, Balanced Trans Flag = 1) or unbalanced (A is lost and B is inserted to A’s start point, Balanced Trans Flag = 0) in the sequence. A duplication is defined by the copied region (Original_start-Original_end) and inserted position (New_start=New_end). An inversion is determined by one region (Original_start=New_start, Original_end = New_end). Each long or small insertion/deletion is defined by the start point and length. In the table, '-1' means unapplicable. We also ensure that the SVs and small variants will not be simulated from the regions related to other variants. Complex SVs combine these simple variants with spatial proximity.
+
+This table's format is identical as the output of other modes (except for VCF mode). The relative positions (last four columns) are not required for 'exact mode'. So, users can utilize the randome generations' output and input some empirical SVs they want. Please pay attention, if your input has overlapped variants, the processing time will be longer. Please ensure your input does not contain any overlapped variants for smooth running.
+
+See the complete file in the ~/BVSim/empirical/BV_22_seq_1_SVtable_full.csv.
+| Index | Index_con | SV_type        | Original_start | Original_end | Len_SV | New_start | New_end | New_len_SV | Balanced Trans Flag | relative start1 | relative end1 | relative start2 | relative end2 |
+|-------|-----------|----------------|----------------|--------------|--------|-----------|---------|------------|---------------------|-----------------|---------------|------------------|----------------|
+| 0     | 0         | Translocation  | 12612          | 12804        | 193    | 70068     | 70139   | 72         | 1                   | 12611           | 12682         | 70179            | 70371          |
+| ...   | ...       | ...            | ...            | ...          | ...    | ...       | ...     | ...        | ...                 | ...             | ...           | ...              | ...            |
+| 3     | 0         | Translocation  | 128154         | 128326       | 173    | 96305     | 96305   | 173        | 0                   | 128971          | 128971        | 96989            | 97161          |
+| 4     | 0         | Translocation  | 136841         | 137244       | 404    | 130197    | 130395  | 199        | 1                   | 137788          | 137986        | 130841           | 131244         |
+| 5     | 0         | Inversion      | 59458          | 59511        | 54     | 59458     | 59511   | 54         | -1                  | 59619           | 59672         | -1               | -1             |
+| 6     | 0         | Inversion      | 156931         | 157010       | 80     | 156931    | 157010  | 80         | -1                  | 157613          | 157692        | -1               | -1             |
+| 7     | 0         | Duplication    | 38630          | 38704        | 75     | 76208     | 76208   | 75         | -1                  | 38641           | 38715         | 76441            | 76515          |
+| 8     | 0         | Duplication    | 135854         | 135951       | 98     | 135951    | 135951  | 98         | -1                  | 136703          | 136800        | 136801           | 136898         |
+| 9     | 0         | Deletion       | 27054          | 27105        | 52     | -1        | -1      | -1         | -1                  | -1              | -1            | -1               | -1             |
+| 10    | 0         | Deletion       | 38903          | 38960        | 58     | -1        | -1      | -1         | -1                  | -1              | -1            | -1               | -1             |
+| 11    | 0         | Deletion       | 68108          | 68157        | 50     | -1        | -1      | -1         | -1                  | -1              | -1            | -1               | -1             |
+| 12    | 0         | Deletion       | 144007         | 144066       | 60     | -1        | -1      | -1         | -1                  | -1              | -1            | -1               | -1             |
+| 13    | 0         | Deletion       | 166530         | 166583       | 54     | -1        | -1      | -1         | -1                  | -1              | -1            | -1               | -1             |
+| 14    | 0         | Insertion      | 28137          | 28137        | 182    | -1        | -1      | -1         | -1                  | 27967           | 28148         | -1               | -1             |
+| ...   | ...       | ...            | ...            | ...          | ...    | ...       | ...     | ...        | ...                 | ...             | ...           | ...              | ...            |
+| 18    | 0         | Insertion      | 189262         | 189262       | 350    | -1        | -1      | -1         | -1                  | 189982          | 190331        | -1               | -1             |
+| 19    | 0         | Small_Del      | 7033           | 7033         | 1      | -1        | -1      | -1         | -1                  | -1              | -1            | -1               | -1             |
+| ...   | ...       | ...            | ...            | ...          | ...    | ...       | ...     | ...        | ...                 | ...             | ...           | ...              | ...            |
+| 25    | 0         | Small_Ins      | 163605         | 163605       | 1      | -1        | -1      | -1         | -1                  | 164378          | 164378        | -1               | -1             |
+| 26    | 0         | Substitution   | 8865           | 8865         | 1      | -1        | -1      | -1         | -1                  | 8864            | 8864          | -1               | -1             |
+
+
 
 ### <a name="vcf-mode"></a>VCF Mode for Pre-processing
 
