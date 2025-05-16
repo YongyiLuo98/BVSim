@@ -5,7 +5,7 @@
 
 - [Getting Started](#getting-started)
 - [Installation](#installation)
-- [Configuration Files and CodesInstallation](#configuration-files-codes)
+- [Configuration Files and Codes](#configuration-files-codes)
 - [General Functions and Parameters](#parameters)
   - [Shared Parameters for Simulation Modes](#shared-parameters)
     - [Output Naming Conventions](#output)
