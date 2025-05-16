@@ -1,25 +1,17 @@
 #!/bin/bash
 #SBATCH -J wave
 #SBATCH -N 1 -c 32
-#SBATCH --mem=40G
-#SBATCH --output=/storage01/users/s1155146014/TGS/code/task02/wave_%j.out
-#SBATCH --error=/storage01/users/s1155146014/TGS/code/task02/wave_%j.err
-#SBATCH -p chpc
-#SBATCH --nodelist=chpc-cn025
-#SBATCH --exclusive
-#SBATCH --time=24:00:00
+#SBATCH --output=wave_%j.out
+#SBATCH --error=wave_%j.err
 
-# 加载conda环境
 source /users/s1155146014/miniconda3/etc/profile.d/conda.sh
 conda activate BVSim
 
-# 创建结果目录
-RESULT_BASE="/lustre/project/Stat/s1155146014/TGS_data/test_data/task02/benchmark_results"
+RESULT_BASE="~/benchmark_results"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 RESULT_DIR="${RESULT_BASE}/wave_${TIMESTAMP}"
 mkdir -p ${RESULT_DIR}
 
-# 运行10次测试
 for i in {1..10}; do
     echo "Running replicate $i"
     
@@ -28,6 +20,7 @@ for i in {1..10}; do
     
     /usr/bin/time -f "elapsed_time %e\nmax_rss %M\nswap %W" -o ${RUN_DIR}/time.txt \
     bvsim \
+        -wave \
         -ref /lustre/project/Stat/s1155146014/TGS_data/original_data/hg19/hs37d5.fasta \
         -seq_index 20 \
         -save ${RUN_DIR} \

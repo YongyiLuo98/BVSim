@@ -1,25 +1,17 @@
 #!/bin/bash
-#SBATCH -J wave_TR
+#SBATCH -J wave_region
 #SBATCH -N 1 -c 32
-#SBATCH --mem=40G
-#SBATCH --output=/storage01/users/s1155146014/TGS/code/task02/wave_TR_%j.out
-#SBATCH --error=/storage01/users/s1155146014/TGS/code/task02/wave_TR_%j.err
-#SBATCH -p chpc
-#SBATCH --nodelist=chpc-cn025
-#SBATCH --exclusive
-#SBATCH --time=24:00:00
+#SBATCH --output=wave_region_%j.out
+#SBATCH --error=wave_region_%j.err
 
-# 加载conda环境
-source /users/s1155146014/miniconda3/etc/profile.d/conda.sh
+source ~/conda.sh
 conda activate BVSim
 
-# 创建结果目录
-RESULT_BASE="/lustre/project/Stat/s1155146014/TGS_data/test_data/task02/benchmark_results"
+RESULT_BASE="~/benchmark_results"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-RESULT_DIR="${RESULT_BASE}/wave_TR_${TIMESTAMP}"
+RESULT_DIR="${RESULT_BASE}/wave_region_${TIMESTAMP}"
 mkdir -p ${RESULT_DIR}
 
-# 运行10次测试
 for i in {1..10}; do
     echo "Running replicate $i"
     
@@ -28,7 +20,8 @@ for i in {1..10}; do
     
     /usr/bin/time -f "elapsed_time %e\nmax_rss %M\nswap %W" -o ${RUN_DIR}/time.txt \
     bvsim \
-        -ref /lustre/project/Stat/s1155146014/TGS_data/original_data/hg19/hs37d5.fasta \
+        -wave_region \
+        -ref ~/hg19/hs37d5.fasta \
         -seq_index 20 \
         -save ${RUN_DIR} \
         -seed ${i} \
@@ -40,14 +33,14 @@ for i in {1..10}; do
         -snv_ins 0.0001 \
         -cores 32 \
         -len_bins 500000 \
-        -indel_input_bed /storage01/users/s1155146014/BVSim/empirical/chr21_SV_Tier1_2.bed \
+        -indel_input_bed ~/BVSim/empirical/chr21_SV_Tier1_2.bed \
         -p_del_region 0.810 \
         -p_ins_region 0.828 \
-        -region_bed_url /storage01/users/s1155146014/BVSim/empirical/hg19/chr21_TR_unique.bed
+        -region_bed_url ~/BVSim/empirical/hg19/chr21_TR_unique.bed
         2>&1 | tee ${RUN_DIR}/log.txt
 done
 
-# 生成汇总报告
+
 echo "Generating summary report..."
 echo "Replicate,Time(sec),MaxMemory(kb),Swap(kb)" > ${RESULT_DIR}/summary.csv
 for i in {1..10}; do
@@ -58,7 +51,7 @@ for i in {1..10}; do
     echo "$i,$time_sec,$max_mem,$swap" >> ${RESULT_DIR}/summary.csv
 done
 
-# 计算统计量
+
 awk -F',' '
 NR>1 {
     time[NR]=$2; sum_t+=$2; sum_t2+=$2*$2;

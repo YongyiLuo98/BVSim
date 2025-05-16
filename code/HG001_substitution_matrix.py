@@ -4,8 +4,8 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import os
 
-main_url_save='/home/adduser/data/test_data/TGS/evol_simulator/'
-main_url_read='/home/adduser/data/test_data/TGS/hg001/'
+main_url_save='~/evol_simulator/'
+main_url_read='~/hg001/'
 #vcf_in = VariantFile(main_url_read+"0_mapping.vcf") # auto-detect input format
 #######GRCh38
 vcf_in = pysam.VariantFile(main_url_read+"HG001_GRCh38_1_22_v4.2.1_benchmark.vcf.gz") # auto-detect input format

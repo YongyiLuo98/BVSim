@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Set the output directory
-OUT_DIR="/home/project18/BVSim/empirical/hg38"
+OUT_DIR="~/BVSim/empirical/hg38"
 
 # Create output directory if it doesn't exist
 mkdir -p "$OUT_DIR"
