@@ -1,4 +1,4 @@
-name: bio
+name: BVSim
 channels:
   - biobuilds
   - conda-forge
