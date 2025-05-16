@@ -54,19 +54,18 @@ conda activate BVSim
 bvsim --help
 bvsim -h
 
-## Run a toy example with a specified reference in the cloned folder
+## Run a toy example with a the modifiable YAML parameters in the cloned folder
 conda activate BVSim
-bvsim -ref 'your_home_path/BVSim/empirical/sub_hg19_chr1.fasta' -seed 0 -rep 0 -write -snp 2000
-## If you prefer using the default reference, simply execute
+bvsim -config ~/BVSim/code/custom_config.yaml -sv_dup 20 \
 
+## If you prefer using the default reference, simply execute (run with default configuration file: ~/BVSim/code/bvsim_config.yaml)
 bvsim
 
-
-# Generate variations with specific parameters
+# Generate variations with specific parameters (input parameters will overwrite the default settings)
 bvsim -seed 1 -rep 1 -snp 2000
 
 # To write out the relative positions, use the following command
-python ~/BVSim/main/write_SV.py your_home_path/BVSim/save/ BV_1_con0_chr1_SVtable.csv BV_1_con0_chr1_tem_ins_dic.npy
+python ~/BVSim/main/write_SV.py ~/BVSim/save/ BV_1_con0_chr1_SVtable.csv BV_1_con0_chr1_tem_ins_dic.npy
 
 # Create a block intervals BED file
 cd your_home_path
