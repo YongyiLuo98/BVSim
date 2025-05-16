@@ -267,6 +267,17 @@ We require the following format for the input '-variant_table'
 | 26    | 0         | Substitution   | 8865           | 8865         | 1      | -1        | -1      | -1         | -1                  | 8864            | 8864          | -1               | -1             |
 
 ### <a name="vcf-mode"></a>VCF Mode
+
+
+| Parameter | Type | Description | Default |
+| --- | --- | --- | --- |
+| `-vcf` | T/F | Run VCF.py script | False |
+| `-vcf_file` | str | Input VCF file path (required for VCF mode) | None |
+| `-chr` | str | Target chromosome name to filter from VCF file (e.g., chr21) (required for VC mode) | None |
+| `-select` | str | Selection criteria (e.g., "AF>0.001", "SVLEN>=100") (required for VC mode) | None |
+| `-min_len` | str | Minimum SV length (bp) (positice integer, required for VC mode) | 50 |
+| `-sv_type` | str | SV types to include (required for VC mode) | ["DEL", "INS", "DUP", "INV"] |
+
 ```bash
 #!/bin/bash
 #SBATCH -J VCF
@@ -320,6 +331,7 @@ bvsim -ref '~/BVSim/empirical/sub_hg19_chr1.fasta' -save your_saving_url -seed 1
 The lengths of the CSVs follow different Gaussian distributions with modifiable means (-mu) and standard deviations (-sigma).
 | Parameter | Type | Description | Default |
 | --- | --- | --- | --- |
+| `-csv` | T/F | Run csv.py script | False |
 | `-csv_num` | int | Number for each type of CSV (non-negative integer), superior to -csv_total_num | 0 |
 | `-csv_total_num` | int | Total number for CSV (non-negative integer), assign number of each type by empirical weights | 0 |
 | `-num_ID1_csv to -num_ID18_csv` | int | Number of respective CSV types (non-negative integer)| 5 |
@@ -505,9 +517,9 @@ Ensure that both the single sample and multiple sample BED files are placed in t
 
 | Parameter | Type | Description | Default |
 | --- | --- | --- | --- |
+| `-wave` | T/F | Run Wave.py script | False |
 | `-cores` | int | Number of kernels for parallel processing (positive integer, required for uniform-parallel/wave/wave-region mode to set up parallel computing) | 1 |
 | `-len_bins` | int | Length of bins for parallel processing, must be positive integer and smaller than reference length (required for uniform-parallel/wave/wave-region mode to set up parallel computing) | 50000 |
-| `-wave` | bool | Run Wave.py script | False |
 | `-mode` | str | Mode for calculating probabilities (empirical/probability)| 'probability' |
 | `-sum` | bool | Total indel SV equals sum of the input (single sample) or mean of the input (multiple samples) | False |
 | `-indel_input_bed` | str | Input BED file for indels (required if input single sample for wave or wave-region mode) | None |
@@ -575,13 +587,13 @@ sbatch task03.job
 The table below summarizes the parameters available for Wave region mode:
 | Parameter | Type | Description | Default |
 | --- | --- | --- | --- |
+| `-wave_region` | T/F | Run Wave_TR.py script | False |
 | `-cores` | int | Number of kernels for parallel processing (positive integer, required for uniform-parallel/wave/wave-region mode to set up parallel computing) | 1 |
 | `-len_bins` | int | Length of bins for parallel processing, must be positive integer and smaller than reference length (required for uniform-parallel/wave/wave-region mode to set up parallel computing) | 50000 |
 | `-mode` | str | Mode for calculating probabilities (empirical/probability)| 'probability' |
 | `-sum` | bool | Total indel SV equals sum of the input (single sample) or mean of the input (multiple samples) | False |
 | `-indel_input_bed` | str | Input BED file for indels (required if input single sample for wave or wave-region mode) | None |
 | `-file_list` | str | List of sample files (e.g. NA19240_chr21.bed, HG02818_chr21.bed, NA19434_chr21.bed in empirical folder) (required if multiple samples for wave or wave-region mode) | None |
-| `-wave_region` | bool | Run Wave_TR.py script | False |
 | `-p_del_region` | float | Probability of SV DEL (between 0 and 1) in the user-defined region for deletion (required for wave-region mode)| 0.5 |
 | `-p_ins_region` | float | Probability of SV INS (between 0 and 1) in the user-defined region for insertion (required for wave-region mode)| 0.5 |
 | `-region_bed_url` | str | Path of the BED file for the user-defined region (required for wave-region mode)| None |
