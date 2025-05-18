@@ -1340,6 +1340,10 @@ def parse_args():
     parser.add_argument('-p_ins_region', type=float, help='Probability of SV INS in the user-defined region for insertion', default=0.5)
     parser.add_argument('-region_bed_url', type=str, help='local path of the BED file for the user-defined region', default=None)
     parser.add_argument('-hg38', type=str, help='Chromosome name', required=False)
+    parser.add_argument('-cell', action='store_true', default=False, 
+                        help='Use ONLY the CELL dataset list. If neither -cell nor -hgsvc is specified, defaults to merged CELL+HGSVC (deduplicated).')
+    parser.add_argument('-hgsvc', action='store_true', default=False,
+        help='Use ONLY the HGSVC dataset list. If neither -cell nor -hgsvc is specified, defaults to merged CELL+HGSVC (deduplicated).')
     return parser.parse_args()
 
 # test_number = 2
@@ -2144,8 +2148,52 @@ def main():
     chr_name = args.hg38
     #! cell population mean per segment
     # 样本名列表
-    file_list = ['CHM1','CHM13','HG00268','HG00514','HG00733','NA19240','HG02818','HG01352','HG02059','NA12878','HG04217','HG02106','HG00268','AK1','HX1']
+    # samples = ['CHM1', 'CHM13', 'HG00514', 'HG00733', 'NA19240', 'HG02818', 'NA19434', 
+    #        'HG01352', 'HG02059', 'NA12878', 'HG04217', 'HG02106', 'HG00268', 'AK1', 'HX1']
 
+    # file_list_cell = ['CHM1','CHM13','HG00268','HG00514','HG00733','NA19240','HG02818','HG01352','HG02059','NA12878','HG04217','HG02106','HG00268','AK1','HX1']
+    file_list_cell =  ['CHM1', 'CHM13', 'HG00514', 'HG00733', 'NA19240', 'HG02818', 'NA19434', 
+           'HG01352', 'HG02059', 'NA12878', 'HG04217', 'HG02106', 'HG00268', 'AK1', 'HX1']
+    file_list_HGSVC = ['HG00731',
+    'HG00732',
+    'HG00512',
+    'HG00513',
+    'NA19238',
+    'NA19239',
+    'NA24385',
+    'HG03125',
+    'NA12878',
+    'HG03486',
+    'HG02818',
+    'HG03065',
+    'HG03683',
+    'HG02011',
+    'HG03371',
+    'NA12329',
+    'HG00171',
+    'NA18939',
+    'HG03732',
+    'HG00096',
+    'NA20847',
+    'HG03009',
+    'NA20509',
+    'HG00864',
+    'HG01505',
+    'NA18534',
+    'NA19650',
+    'HG02587',
+    'HG01596',
+    'HG01114',
+    'NA19983',
+    'HG02492']
+    # file_list = list(set(file_list_cell + file_list_HGSVC))
+    if args.cell:
+        file_list = file_list_cell
+    elif args.hgsvc:
+        file_list = file_list_HGSVC
+    else:
+        # 默认合并两个列表并去重
+        file_list = list(set(file_list_cell + file_list_HGSVC))
     # 为其他样本创建一个列名列表
     column_names_others = ['chr', 'pos', 'pos_end', 'SV type','SV length']
 
