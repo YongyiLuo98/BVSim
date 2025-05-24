@@ -43,15 +43,15 @@
 To get started with BVSim, follow these steps to install and run the simulator:
 
 ```sh
-# Create an envrionment called BVSim and install the dependencies from the provided environment.yml file
-conda env create -f environment.yml
-conda activate BVSim
 # Installzation
 ## Clone the repository in your home path
 git clone https://github.com/YongyiLuo98/BVSim.git
 ## Navigate to the ~/BVSim/ directory and install the package
 cd ~/BVSim/
+# Create an envrionment called BVSim and install the dependencies from the provided environment.yml file
+conda env create -f environment.yml
 conda activate BVSim
+# Install our package in the desired environment
 pip install -e .
 
 # Verify the installation
@@ -82,24 +82,21 @@ bvsim -uniform -seed 1 -rep 1 -write -snp 2000 -block_region_bed_url block_inter
 ```
 
 ## <a name="Installation"></a>Installation
-### Create an envrionment called BVSim and install the dependencies
-To start with, you need to install the dependent packages in an environment, for example called BVSim.
-```bash
-# Create an envrionment called BVSim and install the dependencies from the provided environment.yml file
-conda env create -f environment.yml
-conda activate BVSim
-```
+
 ### Clone the Repository
-Next, you need to clone the BVSim repository to your local machine. Execute the following command in your home directory:
+First, you need to clone the BVSim repository to your local machine. Execute the following command in your home directory:
 ```bash
 cd ~
 git clone https://github.com/YongyiLuo98/BVSim.git
 ```
-### Navigate to the BVSim Directory and Install the Package
-Next, navigate to the .../BVSim/ directory to install the package:
+### Navigate to the BVSim Directory and Install the Dependencies and Package
+Next, navigate to the .../BVSim/ directory to install the dependent packages in an environment, for example called BVSim. Then, install the package:
 ```bash
 cd ~/BVSim/
+# Create an envrionment called BVSim and install the dependencies from the provided environment.yml file
+conda env create -f environment.yml
 conda activate BVSim
+# Install our package
 pip install -e .
 conda deactivate
 ```
