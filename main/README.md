@@ -43,15 +43,15 @@
 To get started with BVSim, follow these steps to install and run the simulator:
 
 ```sh
-# Create an envrionment called BVSim and install the dependencies from the provided environment.yml file
-conda env create -f environment.yml
-conda activate BVSim
 # Installzation
 ## Clone the repository in your home path
 git clone https://github.com/YongyiLuo98/BVSim.git
 ## Navigate to the ~/BVSim/ directory and install the package
 cd ~/BVSim/
+# Create an envrionment called BVSim and install the dependencies from the provided environment.yml file
+conda env create -f environment.yml
 conda activate BVSim
+# Install our package in the desired environment
 pip install -e .
 
 # Verify the installation
@@ -82,24 +82,21 @@ bvsim -uniform -seed 1 -rep 1 -write -snp 2000 -block_region_bed_url block_inter
 ```
 
 ## <a name="Installation"></a>Installation
-### Create an envrionment called BVSim and install the dependencies
-To start with, you need to install the dependent packages in an environment, for example called BVSim.
-```bash
-# Create an envrionment called BVSim and install the dependencies from the provided environment.yml file
-conda env create -f environment.yml
-conda activate BVSim
-```
+
 ### Clone the Repository
-Next, you need to clone the BVSim repository to your local machine. Execute the following command in your home directory:
+First, you need to clone the BVSim repository to your local machine. Execute the following command in your home directory:
 ```bash
 cd ~
 git clone https://github.com/YongyiLuo98/BVSim.git
 ```
-### Navigate to the BVSim Directory and Install the Package
-Next, navigate to the .../BVSim/ directory to install the package:
+### Navigate to the BVSim Directory and Install the Dependencies and Package
+Next, navigate to the .../BVSim/ directory to install the dependent packages in an environment, for example called BVSim. Then, install the package:
 ```bash
 cd ~/BVSim/
+# Create an envrionment called BVSim and install the dependencies from the provided environment.yml file
+conda env create -f environment.yml
 conda activate BVSim
+# Install our package
 pip install -e .
 conda deactivate
 ```
@@ -119,9 +116,6 @@ bvsim -uniform -ref 'your_home_path/BVSim/empirical/sub_hg19_chr1.fasta' -seed 0
 ```
 or you can use the default reference to test the installation by type the following in your home path. If you do not give a saving path, the outputs will go to "your_home_path\BVSim\save\".
 
-```bash
-bvsim 
-```
 ## <a name="configuration-files-codes"></a>Configuration Files and Codes
 
 ### Code Structure Overview
@@ -532,16 +526,6 @@ The table below summarizes the parameters available for Wave region mode:
 | `-region_bed_url` | str | Path of the BED file for the user-defined region (required for wave-region mode)| None |
 
 
-### <a name="exact-mode"></a>Exact Mode
-Users can provide a variant table with target SVs with their length, positions and type. BVSim will simulate the variants with an non-overlapping feature. If some defined variations are overlapped, BVSim will sort them by start positions and discard the latter ones.
-#### <a name="parameters-for-Exact-mode"></a>Parameters for Exact Mode
-| Parameter | Type | Description | Default |
-| --- | --- | --- | --- |
-| `-exact` | T/F | Generate exact variants from input table | False |
-| `-variant_table` | str | Path to variant table CSV file (required for exact mode) | None |
-| `-validate_only` | T/F | Only validate input without generating variants| False |
-
-
 ### <a name="complex-sv-mode"></a>Complex SV Mode
 Add -csv to your command, 18 types of Complex Structure Variations can be generated.
 
@@ -618,6 +602,15 @@ sbatch task01.job
 | `-cores` | int | Number of kernels for parallel processing (positive integer, required for uniform-parallel/wave/wave-region mode to set up parallel computing) | 1 |
 | `-len_bins` | int | Length of bins for parallel processing, must be positive integer and smaller than reference length (required for uniform-parallel/wave/wave-region mode to set up parallel computing) | 50000 |
 
+
+### <a name="exact-mode"></a>Exact Mode
+Users can provide a variant table with target SVs with their length, positions and type. BVSim will simulate the variants with an non-overlapping feature. If some defined variations are overlapped, BVSim will sort them by start positions and discard the latter ones.
+#### <a name="parameters-for-Exact-mode"></a>Parameters for Exact Mode
+| Parameter | Type | Description | Default |
+| --- | --- | --- | --- |
+| `-exact` | T/F | Generate exact variants from input table | False |
+| `-variant_table` | str | Path to variant table CSV file (required for exact mode) | None |
+| `-validate_only` | T/F | Only validate input without generating variants| False |
 
 #### Toy example (exact mode)
 ```bash
