@@ -116,9 +116,6 @@ bvsim -uniform -ref 'your_home_path/BVSim/empirical/sub_hg19_chr1.fasta' -seed 0
 ```
 or you can use the default reference to test the installation by type the following in your home path. If you do not give a saving path, the outputs will go to "your_home_path\BVSim\save\".
 
-```bash
-bvsim 
-```
 ## <a name="configuration-files-codes"></a>Configuration Files and Codes
 
 ### Code Structure Overview
@@ -538,6 +535,52 @@ Users can provide a variant table with target SVs with their length, positions a
 | `-variant_table` | str | Path to variant table CSV file (required for exact mode) | None |
 | `-validate_only` | T/F | Only validate input without generating variants| False |
 
+#### Toy example (exact mode)
+```bash
+#!/bin/bash
+#SBATCH -J exact
+#SBATCH -N 1 -c 1
+#SBATCH --output=exact_test_out.txt
+#SBATCH --error=exact_test_err.txt
+
+source /opt/share/etc/miniconda3-py39.sh
+conda activate BVSim
+bvsim -exact \
+-ref ~/BVSim/empirical/sub_hg19_chr1.fasta -seq_index 0 \
+-seed 0 -rep 1 \
+-variant_table ~/BVSim/empirical/BV_22_seq_1_SVtable_full.csv \
+-write -notblockN
+conda deactivate
+```
+We require the following format for the input '-variant_table'. A translocation is defined by two regions, A (Original_start-Original_end) and B (New_start-New_end), either balanced (exchanged, Balanced Trans Flag = 1) or unbalanced (A is lost and B is inserted to A’s start point, Balanced Trans Flag = 0) in the sequence. A duplication is defined by the copied region (Original_start-Original_end) and inserted position (New_start=New_end). An inversion is determined by one region (Original_start=New_start, Original_end = New_end). Each long or small insertion/deletion is defined by the start point and length. In the table, '-1' means unapplicable. We also ensure that the SVs and small variants will not be simulated from the regions related to other variants. Complex SVs combine these simple variants with spatial proximity.
+
+This table's format is identical as the output of other modes (except for VCF mode). The relative positions (last four columns) are not required for 'exact mode'. So, users can utilize the randome generations' output and input some empirical SVs they want. Please pay attention, if your input has overlapped variants, the processing time will be longer. Please ensure your input does not contain any overlapped variants for smooth running.
+
+See the complete file in the ~/BVSim/empirical/BV_22_seq_1_SVtable_full.csv.
+| Index | Index_con | SV_type        | Original_start | Original_end | Len_SV | New_start | New_end | New_len_SV | Balanced Trans Flag | relative start1 | relative end1 | relative start2 | relative end2 |
+|-------|-----------|----------------|----------------|--------------|--------|-----------|---------|------------|---------------------|-----------------|---------------|------------------|----------------|
+| 0     | 0         | Translocation  | 12612          | 12804        | 193    | 70068     | 70139   | 72         | 1                   | 12611           | 12682         | 70179            | 70371          |
+| ...   | ...       | ...            | ...            | ...          | ...    | ...       | ...     | ...        | ...                 | ...             | ...           | ...              | ...            |
+| 3     | 0         | Translocation  | 128154         | 128326       | 173    | 96305     | 96305   | 173        | 0                   | 128971          | 128971        | 96989            | 97161          |
+| 4     | 0         | Translocation  | 136841         | 137244       | 404    | 130197    | 130395  | 199        | 1                   | 137788          | 137986        | 130841           | 131244         |
+| 5     | 0         | Inversion      | 59458          | 59511        | 54     | 59458     | 59511   | 54         | -1                  | 59619           | 59672         | -1               | -1             |
+| 6     | 0         | Inversion      | 156931         | 157010       | 80     | 156931    | 157010  | 80         | -1                  | 157613          | 157692        | -1               | -1             |
+| 7     | 0         | Duplication    | 38630          | 38704        | 75     | 76208     | 76208   | 75         | -1                  | 38641           | 38715         | 76441            | 76515          |
+| 8     | 0         | Duplication    | 135854         | 135951       | 98     | 135951    | 135951  | 98         | -1                  | 136703          | 136800        | 136801           | 136898         |
+| 9     | 0         | Deletion       | 27054          | 27105        | 52     | -1        | -1      | -1         | -1                  | -1              | -1            | -1               | -1             |
+| 10    | 0         | Deletion       | 38903          | 38960        | 58     | -1        | -1      | -1         | -1                  | -1              | -1            | -1               | -1             |
+| 11    | 0         | Deletion       | 68108          | 68157        | 50     | -1        | -1      | -1         | -1                  | -1              | -1            | -1               | -1             |
+| 12    | 0         | Deletion       | 144007         | 144066       | 60     | -1        | -1      | -1         | -1                  | -1              | -1            | -1               | -1             |
+| 13    | 0         | Deletion       | 166530         | 166583       | 54     | -1        | -1      | -1         | -1                  | -1              | -1            | -1               | -1             |
+| 14    | 0         | Insertion      | 28137          | 28137        | 182    | -1        | -1      | -1         | -1                  | 27967           | 28148         | -1               | -1             |
+| ...   | ...       | ...            | ...            | ...          | ...    | ...       | ...     | ...        | ...                 | ...             | ...           | ...              | ...            |
+| 18    | 0         | Insertion      | 189262         | 189262       | 350    | -1        | -1      | -1         | -1                  | 189982          | 190331        | -1               | -1             |
+| 19    | 0         | Small_Del      | 7033           | 7033         | 1      | -1        | -1      | -1         | -1                  | -1              | -1            | -1               | -1             |
+| ...   | ...       | ...            | ...            | ...          | ...    | ...       | ...     | ...        | ...                 | ...             | ...           | ...              | ...            |
+| 25    | 0         | Small_Ins      | 163605         | 163605       | 1      | -1        | -1      | -1         | -1                  | 164378          | 164378        | -1               | -1             |
+| 26    | 0         | Substitution   | 8865           | 8865         | 1      | -1        | -1      | -1         | -1                  | 8864            | 8864          | -1               | -1             |
+
+
 
 ### <a name="complex-sv-mode"></a>Complex SV Mode
 Add -csv to your command, 18 types of Complex Structure Variations can be generated.
@@ -614,52 +657,6 @@ sbatch task01.job
 | `-uniform` | T/F | Uniform distribution mode | False |
 | `-cores` | int | Number of kernels for parallel processing (positive integer, required for uniform-parallel/wave/wave-region mode to set up parallel computing) | 1 |
 | `-len_bins` | int | Length of bins for parallel processing, must be positive integer and smaller than reference length (required for uniform-parallel/wave/wave-region mode to set up parallel computing) | 50000 |
-
-
-#### Toy example (exact mode)
-```bash
-#!/bin/bash
-#SBATCH -J exact
-#SBATCH -N 1 -c 1
-#SBATCH --output=exact_test_out.txt
-#SBATCH --error=exact_test_err.txt
-
-source /opt/share/etc/miniconda3-py39.sh
-conda activate BVSim
-bvsim -exact \
--ref ~/BVSim/empirical/sub_hg19_chr1.fasta -seq_index 0 \
--seed 0 -rep 1 \
--variant_table ~/BVSim/empirical/BV_22_seq_1_SVtable_full.csv \
--write -notblockN
-conda deactivate
-```
-We require the following format for the input '-variant_table'. A translocation is defined by two regions, A (Original_start-Original_end) and B (New_start-New_end), either balanced (exchanged, Balanced Trans Flag = 1) or unbalanced (A is lost and B is inserted to A’s start point, Balanced Trans Flag = 0) in the sequence. A duplication is defined by the copied region (Original_start-Original_end) and inserted position (New_start=New_end). An inversion is determined by one region (Original_start=New_start, Original_end = New_end). Each long or small insertion/deletion is defined by the start point and length. In the table, '-1' means unapplicable. We also ensure that the SVs and small variants will not be simulated from the regions related to other variants. Complex SVs combine these simple variants with spatial proximity.
-
-This table's format is identical as the output of other modes (except for VCF mode). The relative positions (last four columns) are not required for 'exact mode'. So, users can utilize the randome generations' output and input some empirical SVs they want. Please pay attention, if your input has overlapped variants, the processing time will be longer. Please ensure your input does not contain any overlapped variants for smooth running.
-
-See the complete file in the ~/BVSim/empirical/BV_22_seq_1_SVtable_full.csv.
-| Index | Index_con | SV_type        | Original_start | Original_end | Len_SV | New_start | New_end | New_len_SV | Balanced Trans Flag | relative start1 | relative end1 | relative start2 | relative end2 |
-|-------|-----------|----------------|----------------|--------------|--------|-----------|---------|------------|---------------------|-----------------|---------------|------------------|----------------|
-| 0     | 0         | Translocation  | 12612          | 12804        | 193    | 70068     | 70139   | 72         | 1                   | 12611           | 12682         | 70179            | 70371          |
-| ...   | ...       | ...            | ...            | ...          | ...    | ...       | ...     | ...        | ...                 | ...             | ...           | ...              | ...            |
-| 3     | 0         | Translocation  | 128154         | 128326       | 173    | 96305     | 96305   | 173        | 0                   | 128971          | 128971        | 96989            | 97161          |
-| 4     | 0         | Translocation  | 136841         | 137244       | 404    | 130197    | 130395  | 199        | 1                   | 137788          | 137986        | 130841           | 131244         |
-| 5     | 0         | Inversion      | 59458          | 59511        | 54     | 59458     | 59511   | 54         | -1                  | 59619           | 59672         | -1               | -1             |
-| 6     | 0         | Inversion      | 156931         | 157010       | 80     | 156931    | 157010  | 80         | -1                  | 157613          | 157692        | -1               | -1             |
-| 7     | 0         | Duplication    | 38630          | 38704        | 75     | 76208     | 76208   | 75         | -1                  | 38641           | 38715         | 76441            | 76515          |
-| 8     | 0         | Duplication    | 135854         | 135951       | 98     | 135951    | 135951  | 98         | -1                  | 136703          | 136800        | 136801           | 136898         |
-| 9     | 0         | Deletion       | 27054          | 27105        | 52     | -1        | -1      | -1         | -1                  | -1              | -1            | -1               | -1             |
-| 10    | 0         | Deletion       | 38903          | 38960        | 58     | -1        | -1      | -1         | -1                  | -1              | -1            | -1               | -1             |
-| 11    | 0         | Deletion       | 68108          | 68157        | 50     | -1        | -1      | -1         | -1                  | -1              | -1            | -1               | -1             |
-| 12    | 0         | Deletion       | 144007         | 144066       | 60     | -1        | -1      | -1         | -1                  | -1              | -1            | -1               | -1             |
-| 13    | 0         | Deletion       | 166530         | 166583       | 54     | -1        | -1      | -1         | -1                  | -1              | -1            | -1               | -1             |
-| 14    | 0         | Insertion      | 28137          | 28137        | 182    | -1        | -1      | -1         | -1                  | 27967           | 28148         | -1               | -1             |
-| ...   | ...       | ...            | ...            | ...          | ...    | ...       | ...     | ...        | ...                 | ...             | ...           | ...              | ...            |
-| 18    | 0         | Insertion      | 189262         | 189262       | 350    | -1        | -1      | -1         | -1                  | 189982          | 190331        | -1               | -1             |
-| 19    | 0         | Small_Del      | 7033           | 7033         | 1      | -1        | -1      | -1         | -1                  | -1              | -1            | -1               | -1             |
-| ...   | ...       | ...            | ...            | ...          | ...    | ...       | ...     | ...        | ...                 | ...             | ...           | ...              | ...            |
-| 25    | 0         | Small_Ins      | 163605         | 163605       | 1      | -1        | -1      | -1         | -1                  | 164378          | 164378        | -1               | -1             |
-| 26    | 0         | Substitution   | 8865           | 8865         | 1      | -1        | -1      | -1         | -1                  | 8864            | 8864          | -1               | -1             |
 
 
 
