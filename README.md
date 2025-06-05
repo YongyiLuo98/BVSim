@@ -227,7 +227,7 @@ If you choose not to generate the relative positions during the initial simulati
 1. **Run the Initial Simulation**:  
 For example, you can execute:
 ```bash
-bvsim -seed 1 -rep 1 -snp 2000
+bvsim -uniform -seed 1 -rep 1 -snp 2000
 ```
 In this case you generated default number of elementary SVs and micro indels, as well as 20000 SNPs saved in the default directory with `BV_1_seq_chr1_SVtable.csv`, `BV_1_seq_chr1_tem_ins_dic.npy`.
 
